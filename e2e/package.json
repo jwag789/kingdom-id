@@ -1,0 +1,17 @@
+{
+  "name": "@kingdom-id/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "tsx prepare.ts && playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "@playwright/test": "^1.56.1",
+    "postgres": "^3.4.7",
+    "tsx": "^4.20.6",
+    "ioredis": "^5.8.1"
+  }
+}

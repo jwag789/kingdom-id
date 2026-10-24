@@ -1,0 +1,143 @@
+import cookie from "@fastify/cookie";
+import formbody from "@fastify/formbody";
+import fastifyStatic from "@fastify/static";
+import { assetsDir, tokensCssPath } from "@kingdom-id/brand";
+import type { Database } from "@kingdom-id/db";
+import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import type { Redis } from "ioredis";
+import { EmailVerification, LogMailer, type Mailer } from "./accounts/email-verification.js";
+import { SessionService } from "./accounts/sessions.js";
+import { UserService } from "./accounts/users.js";
+import type { Config } from "./config.js";
+import type { Context } from "./context.js";
+import { KeyStore } from "./keys/keystore.js";
+import { OAuthError } from "./lib/errors.js";
+import { ClientService } from "./oauth/clients.js";
+import { CodeStore } from "./oauth/codes.js";
+import { ConsentService } from "./oauth/consents.js";
+import { InteractionStore } from "./oauth/interactions.js";
+import { TokenService } from "./oauth/tokens.js";
+import { registerAccountRoutes } from "./routes/account.js";
+import { registerAuthorizeRoutes } from "./routes/authorize.js";
+import { registerDiscoveryRoutes } from "./routes/discovery.js";
+import { registerHealthRoutes } from "./routes/health.js";
+import { registerInteractionRoutes } from "./routes/interaction.js";
+import { registerTokenRoutes } from "./routes/token.js";
+import { registerUserinfoRoutes } from "./routes/userinfo.js";
+import { cookieName } from "./security/cookies.js";
+import { Csrf, CsrfError } from "./security/csrf.js";
+import { registerSecurityHeaders } from "./security/headers.js";
+import { RateLimitedError, RateLimiter } from "./security/rate-limit.js";
+import { sendPage } from "./views/layout.js";
+import { MessagePage } from "./views/pages.js";
+
+export interface AppDeps {
+  config: Config;
+  db: Database;
+  redis: Redis;
+  mailer?: Mailer;
+  logger?: FastifyServerOptions["logger"];
+}
+
+const publicDir = fileURLToPath(new URL("../public", import.meta.url));
+
+// Endpoints called by client software rather than browsers get JSON errors.
+const JSON_ROUTES = ["/token", "/userinfo"];
+
+export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; ctx: Context }> {
+  const { config, db, redis } = deps;
+  const app = Fastify({
+    // Credentials never reach the logs.
+    logger: deps.logger ?? { level: config.LOG_LEVEL, redact: ["req.headers.authorization", "req.headers.cookie"] },
+    trustProxy: config.TRUST_PROXY,
+    bodyLimit: 64 * 1024,
+  });
+
+  const serverSecret = Buffer.from(config.SERVER_SECRET, "base64");
+  const keys = new KeyStore(db, Buffer.from(config.KEY_ENCRYPTION_KEY, "base64"), {
+    rotationIntervalSeconds: config.KEY_ROTATION_INTERVAL_SECONDS,
+    retirementGraceSeconds: config.KEY_RETIREMENT_GRACE_SECONDS,
+  });
+  const mailer = deps.mailer ?? new LogMailer((msg, data) => app.log.info(data, msg));
+
+  const ctx: Context = {
+    config,
+    db,
+    redis,
+    serverSecret,
+    keys,
+    users: new UserService(db),
+    sessions: new SessionService(db, config.SESSION_TTL_SECONDS),
+    sessionCookie: cookieName("kid_session", config.secureCookies),
+    emailVerification: new EmailVerification(redis, mailer, config.ISSUER),
+    clients: new ClientService(db),
+    consents: new ConsentService(db),
+    codes: new CodeStore(redis, config.AUTH_CODE_TTL_SECONDS),
+    interactions: new InteractionStore(redis, config.INTERACTION_TTL_SECONDS),
+    tokens: new TokenService(keys, {
+      issuer: config.ISSUER,
+      serverSecret,
+      accessTokenTtl: config.ACCESS_TOKEN_TTL_SECONDS,
+      idTokenTtl: config.ID_TOKEN_TTL_SECONDS,
+    }),
+    csrf: new Csrf(serverSecret, config.secureCookies),
+    rateLimiter: new RateLimiter(redis),
+  };
+
+  await app.register(cookie);
+  await app.register(formbody);
+  registerSecurityHeaders(app, { hsts: config.NODE_ENV === "production" });
+
+  await app.register(fastifyStatic, { root: publicDir, prefix: "/assets/", maxAge: "1h" });
+  await app.register(fastifyStatic, {
+    root: [assetsDir, dirname(tokensCssPath)],
+    prefix: "/brand/",
+    maxAge: "1d",
+    decorateReply: false,
+  });
+
+  app.setErrorHandler(async (err, req, reply) => {
+    const wantsJson = JSON_ROUTES.some((r) => req.url.startsWith(r));
+    if (err instanceof RateLimitedError) {
+      reply.status(429).header("retry-after", String(err.retryAfterSeconds));
+      return wantsJson
+        ? reply.header("cache-control", "no-store").send({ error: "rate_limited", error_description: "too many requests" })
+        : sendPage(reply, MessagePage({ title: "Slow down", message: "Too many attempts. Wait a moment and try again.", tone: "error" }), 429);
+    }
+    if (err instanceof CsrfError) {
+      return sendPage(
+        reply,
+        MessagePage({ title: "Your form expired", message: "Go back, reload the page, and try again.", tone: "error" }),
+        403,
+      );
+    }
+    if (err instanceof OAuthError) {
+      if (err.status === 401 && req.headers.authorization?.toLowerCase().startsWith("basic ")) {
+        reply.header("www-authenticate", 'Basic realm="kingdom-id"');
+      }
+      return reply.status(err.status).header("cache-control", "no-store").send(err.toJSON());
+    }
+    const status = (err as { statusCode?: number }).statusCode ?? 500;
+    if (status >= 500) req.log.error({ err }, "unhandled error");
+    if (wantsJson) {
+      return reply.status(status).send({ error: status >= 500 ? "server_error" : "invalid_request" });
+    }
+    return sendPage(
+      reply,
+      MessagePage({ title: "Something went wrong", message: "Kingdom ID couldn't complete that request.", tone: "error" }),
+      status,
+    );
+  });
+
+  registerHealthRoutes(app, ctx);
+  registerDiscoveryRoutes(app, ctx);
+  registerAuthorizeRoutes(app, ctx);
+  registerInteractionRoutes(app, ctx);
+  registerTokenRoutes(app, ctx);
+  registerUserinfoRoutes(app, ctx);
+  registerAccountRoutes(app, ctx);
+
+  return { app, ctx };
+}

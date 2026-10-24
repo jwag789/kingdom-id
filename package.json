@@ -1,0 +1,28 @@
+{
+  "name": "kingdom-id",
+  "private": true,
+  "description": "Kingdom ID, by Kingdom Web Builders: an OpenID Connect provider built from the specs.",
+  "type": "module",
+  "packageManager": "pnpm@10.18.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "test": "pnpm -r --filter '!@kingdom-id/e2e' test",
+    "test:e2e": "pnpm --filter @kingdom-id/e2e test",
+    "dev": "pnpm -r --parallel dev",
+    "db:migrate": "pnpm --filter @kingdom-id/db migrate",
+    "db:generate": "pnpm --filter @kingdom-id/db generate",
+    "seed": "pnpm --filter @kingdom-id/idp seed"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "@types/node": "^24.19.2",
+    "eslint": "^9.39.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.0"
+  }
+}

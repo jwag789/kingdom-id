@@ -1,0 +1,220 @@
+/* Phase 1 baseline styles. The designed sign-in experience lands in phase 4. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(60rem 40rem at 15% -10%, rgb(16 121 255 / 0.18), transparent 60%),
+    radial-gradient(50rem 36rem at 110% 110%, rgb(110 91 255 / 0.16), transparent 60%),
+    var(--bg);
+}
+
+a {
+  color: var(--accent-text);
+  text-underline-offset: 3px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.shell {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
+}
+
+.card {
+  width: 100%;
+  max-width: 26rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 1.5);
+  padding: 2rem;
+  box-shadow: 0 2px 4px rgb(10 15 36 / 0.04), 0 18px 40px -12px rgb(10 15 36 / 0.3);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.mark {
+  height: 30px;
+  width: auto;
+}
+
+.divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+}
+
+.app-logo,
+.app-initial {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.app-initial {
+  display: grid;
+  place-items: center;
+  background: var(--surface-raised);
+  font-weight: 600;
+}
+
+.app-name {
+  font-weight: 600;
+}
+
+h1 {
+  font-size: 1.6rem;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  margin: 0 0 0.35rem;
+}
+
+.subhead {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin: 1.5rem 0 0.5rem;
+}
+
+.lede {
+  color: var(--text-muted);
+  margin: 0 0 1.5rem;
+}
+
+.lede.error,
+.field-error {
+  color: var(--error-text);
+}
+
+.alert {
+  border: 1px solid var(--error-text);
+  color: var(--error-text);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+}
+
+form {
+  display: grid;
+  gap: 0.4rem;
+}
+
+label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-top: 0.6rem;
+}
+
+input {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.7rem 0.85rem;
+}
+
+input[aria-invalid="true"] {
+  border-color: var(--error-text);
+}
+
+.hint,
+.field-error {
+  font-size: 0.85rem;
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.field-error {
+  color: var(--error-text);
+}
+
+button {
+  font: inherit;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.8rem 1.25rem;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 200ms var(--ease-premium), box-shadow 200ms var(--ease-premium);
+}
+
+button.primary {
+  margin-top: 1rem;
+  background: var(--brand-500);
+  color: var(--on-accent);
+  box-shadow: 0 1px 2px rgb(0 84 238 / 0.1), 0 12px 32px -10px rgb(0 84 238 / 0.35);
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border);
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+.actions {
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.actions button.primary {
+  margin-top: 0;
+}
+
+.scopes {
+  margin: 0 0 1rem;
+  padding-left: 1.2rem;
+  line-height: 1.8;
+}
+
+.switch {
+  margin: 1.5rem 0 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.footer {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding: 1.5rem 1rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button {
+    transition: none;
+  }
+  button:hover {
+    transform: none;
+  }
+}
