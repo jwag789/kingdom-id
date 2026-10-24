@@ -50,11 +50,14 @@ export const clients = pgTable("clients", {
   secretHash: text("secret_hash"),
   tokenEndpointAuthMethod: tokenEndpointAuthMethod("token_endpoint_auth_method").notNull(),
   redirectUris: text("redirect_uris").array().notNull(),
+  postLogoutRedirectUris: text("post_logout_redirect_uris").array().notNull().default(sql`'{}'::text[]`),
   allowedScopes: text("allowed_scopes").array().notNull(),
   subjectType: subjectType("subject_type").notNull().default("pairwise"),
-  // Host shared by every redirect URI; pairwise subjects are derived from it,
-  // so two clients on one host see the same user as the same `sub`.
+  // Pairwise subjects are derived from this. It's the redirect host, so two
+  // clients on one host see the same `sub`; first-party Kingdom apps all
+  // share one sector so they recognize the same person across apps.
   sectorIdentifier: text("sector_identifier").notNull(),
+  firstParty: boolean("first_party").notNull().default(false),
   idTokenSignedResponseAlg: signingAlg("id_token_signed_response_alg").notNull().default("RS256"),
   createdAt: createdAt(),
 });
@@ -126,9 +129,67 @@ export const consents = pgTable(
   ],
 );
 
+/**
+ * One authorization: what a user granted a client through one code
+ * exchange. Every access and refresh token minted from it carries its ID, so
+ * revoking the grant (reuse detection, revocation, logout, disconnect) kills
+ * all of them at once. A refresh token family is the grant's refresh tokens.
+ */
+export const grants = pgTable(
+  "grants",
+  {
+    // Random, opaque: it appears in access tokens as `gid`.
+    id: text("id").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    sessionId: uuid("session_id").references(() => sessions.id, { onDelete: "set null" }),
+    subject: text("subject").notNull(),
+    scopes: text("scopes").array().notNull(),
+    authTime: timestamp("auth_time", { withTimezone: true }).notNull(),
+    amr: text("amr").array().notNull(),
+    // Hash of the authorization code it came from, so a replayed code can
+    // find and revoke what the first redemption produced.
+    codeHash: text("code_hash").notNull(),
+    // Offline grants (offline_access) outlive the browser session; online
+    // ones end with it.
+    offline: boolean("offline").notNull(),
+    createdAt: createdAt(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedReason: text("revoked_reason"),
+  },
+  (t) => [
+    uniqueIndex("grants_code_hash_key").on(t.codeHash),
+    index("grants_user_client_idx").on(t.userId, t.clientId),
+    index("grants_session_idx").on(t.sessionId),
+  ],
+);
+
+export const refreshTokens = pgTable(
+  "refresh_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    grantId: text("grant_id")
+      .notNull()
+      .references(() => grants.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    createdAt: createdAt(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    // Set when this token is exchanged. Presenting it again is reuse.
+    usedAt: timestamp("used_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("refresh_tokens_token_hash_key").on(t.tokenHash), index("refresh_tokens_grant_idx").on(t.grantId)],
+);
+
 export type User = typeof users.$inferSelect;
 export type Client = typeof clients.$inferSelect;
 export type NewClient = typeof clients.$inferInsert;
 export type SigningKey = typeof signingKeys.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type Consent = typeof consents.$inferSelect;
+export type Grant = typeof grants.$inferSelect;
+export type RefreshToken = typeof refreshTokens.$inferSelect;

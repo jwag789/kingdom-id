@@ -161,3 +161,34 @@ export function AccountPage(props: { name: string; email: string; emailVerified:
     </Layout>
   );
 }
+
+export function LogoutPage(props: {
+  csrf: string;
+  email: string;
+  appName?: string | undefined;
+  hidden: Record<string, string | undefined>;
+}) {
+  return (
+    <Layout title="Sign out">
+      <section class="card" aria-labelledby="title">
+        <CardHeader />
+        <h1 id="title">Sign out of Kingdom?</h1>
+        <p class="lede">
+          {props.appName ? `${props.appName} asked to sign you out. ` : ""}You're signed in as <strong>{props.email}</strong>.
+        </p>
+        <form method="post" action="/end-session/confirm" class="actions">
+          <input type="hidden" name="csrf" value={props.csrf} />
+          {Object.entries(props.hidden).map(([name, value]) =>
+            value !== undefined ? <input type="hidden" name={name} value={value} /> : null,
+          )}
+          <button type="submit" name="decision" value="stay" class="secondary">
+            Stay signed in
+          </button>
+          <button type="submit" name="decision" value="logout" class="primary">
+            Sign out
+          </button>
+        </form>
+      </section>
+    </Layout>
+  );
+}

@@ -78,3 +78,24 @@ test("light mode passes the same accessibility checks", async ({ browser }) => {
   await expectAccessible(page);
   await context.close();
 });
+
+test("signing out of Kingdom from the demo ends the Kingdom session", async ({ page }) => {
+  const email = `e2e-logout-${Date.now()}@example.test`;
+  await page.goto("http://localhost:4001/login");
+  await page.getByRole("link", { name: "Create an account" }).click();
+  await page.getByLabel("Name").fill("Katherine Johnson");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Create account" }).click();
+  await page.getByRole("button", { name: "Allow" }).click();
+  await expect(page.getByTestId("greeting")).toHaveText("Signed in as Katherine Johnson");
+
+  // The demo's id_token_hint proves the session, so there's no confirmation step.
+  await page.getByRole("link", { name: "Sign out of Kingdom too" }).click();
+  await expect(page).toHaveURL("http://localhost:4001/");
+  await expect(page.getByRole("link", { name: "Sign in with Kingdom" })).toBeVisible();
+
+  // Signing in again now needs a password: the Kingdom session is gone.
+  await page.getByRole("link", { name: "Sign in with Kingdom" }).click();
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+});

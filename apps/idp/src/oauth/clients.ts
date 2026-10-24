@@ -25,12 +25,31 @@ export function validateRedirectUris(uris: string[]): string {
   return [...hosts][0]!;
 }
 
+// Every first-party Kingdom app derives subjects from this one sector, so
+// Cappuccino, InkSpirit and the rest see the same `sub` for the same person,
+// while third-party apps each get their own.
+export const FIRST_PARTY_SECTOR = "first-party.kingdomwebbuilders.com";
+
+/** Post-logout redirect URIs follow the same rules, minus the shared-host requirement. */
+export function validatePostLogoutUris(uris: string[]): void {
+  for (const raw of uris) {
+    const url = new URL(raw);
+    if (url.hash) throw new Error(`post-logout redirect URI must not contain a fragment: ${raw}`);
+    if (url.protocol !== "https:" && !(url.protocol === "http:" && LOOPBACK.has(url.hostname))) {
+      throw new Error(`post-logout redirect URI must use https (http is allowed only for loopback): ${raw}`);
+    }
+  }
+}
+
 export interface CreateClientInput {
   id?: string;
   name: string;
   logoUri?: string;
   type: "confidential" | "public";
   redirectUris: string[];
+  postLogoutRedirectUris?: string[];
+  /** A Kingdom-owned app: shares one pairwise sector with the other first-party apps. */
+  firstParty?: boolean;
   allowedScopes?: string[];
   subjectType?: "public" | "pairwise";
   idTokenSignedResponseAlg?: "RS256" | "ES256";
@@ -50,7 +69,8 @@ export class ClientService {
 
   /** Registers a client. The secret is returned once and only its hash is stored. */
   async create(input: CreateClientInput): Promise<{ client: Client; secret?: string }> {
-    const sectorIdentifier = validateRedirectUris(input.redirectUris);
+    const host = validateRedirectUris(input.redirectUris);
+    validatePostLogoutUris(input.postLogoutRedirectUris ?? []);
     const secret = input.type === "confidential" ? (input.secret ?? randomToken()) : undefined;
     const values: NewClient = {
       id: input.id ?? `kid_${randomToken(12)}`,
@@ -61,9 +81,11 @@ export class ClientService {
       tokenEndpointAuthMethod:
         input.type === "public" ? "none" : (input.tokenEndpointAuthMethod ?? "client_secret_basic"),
       redirectUris: input.redirectUris,
+      postLogoutRedirectUris: input.postLogoutRedirectUris ?? [],
+      firstParty: input.firstParty ?? false,
       allowedScopes: input.allowedScopes ?? [...SUPPORTED_SCOPES],
       subjectType: input.subjectType ?? "pairwise",
-      sectorIdentifier,
+      sectorIdentifier: input.firstParty ? FIRST_PARTY_SECTOR : host,
       idTokenSignedResponseAlg: input.idTokenSignedResponseAlg ?? "RS256",
     };
     const [client] = await this.db.insert(clients).values(values).returning();

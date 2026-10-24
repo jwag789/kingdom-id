@@ -15,8 +15,10 @@ import type { Context } from "./context.js";
 import { KeyStore } from "./keys/keystore.js";
 import { OAuthError } from "./lib/errors.js";
 import { ClientService } from "./oauth/clients.js";
+import { AccessTokenVerifier } from "./oauth/access-tokens.js";
 import { CodeStore } from "./oauth/codes.js";
 import { ConsentService } from "./oauth/consents.js";
+import { GrantService } from "./oauth/grants.js";
 import { InteractionStore } from "./oauth/interactions.js";
 import { TokenService } from "./oauth/tokens.js";
 import { registerAccountRoutes } from "./routes/account.js";
@@ -24,6 +26,8 @@ import { registerAuthorizeRoutes } from "./routes/authorize.js";
 import { registerDiscoveryRoutes } from "./routes/discovery.js";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerInteractionRoutes } from "./routes/interaction.js";
+import { registerLogoutRoutes } from "./routes/logout.js";
+import { registerTokenManagementRoutes } from "./routes/token-management.js";
 import { registerTokenRoutes } from "./routes/token.js";
 import { registerUserinfoRoutes } from "./routes/userinfo.js";
 import { cookieName } from "./security/cookies.js";
@@ -44,7 +48,7 @@ export interface AppDeps {
 const publicDir = fileURLToPath(new URL("../public", import.meta.url));
 
 // Endpoints called by client software rather than browsers get JSON errors.
-const JSON_ROUTES = ["/token", "/userinfo"];
+const JSON_ROUTES = ["/token", "/userinfo", "/revoke", "/introspect"];
 
 export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; ctx: Context }> {
   const { config, db, redis } = deps;
@@ -59,6 +63,11 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
   const keys = new KeyStore(db, Buffer.from(config.KEY_ENCRYPTION_KEY, "base64"), {
     rotationIntervalSeconds: config.KEY_ROTATION_INTERVAL_SECONDS,
     retirementGraceSeconds: config.KEY_RETIREMENT_GRACE_SECONDS,
+  });
+  const grants = new GrantService(db, {
+    accessTokenTtl: config.ACCESS_TOKEN_TTL_SECONDS,
+    refreshIdleTtl: config.REFRESH_TOKEN_IDLE_TTL_SECONDS,
+    refreshAbsoluteTtl: config.REFRESH_TOKEN_ABSOLUTE_TTL_SECONDS,
   });
   const mailer = deps.mailer ?? new LogMailer((msg, data) => app.log.info(data, msg));
 
@@ -76,6 +85,8 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
     consents: new ConsentService(db),
     codes: new CodeStore(redis, config.AUTH_CODE_TTL_SECONDS),
     interactions: new InteractionStore(redis, config.INTERACTION_TTL_SECONDS),
+    grants,
+    accessTokens: new AccessTokenVerifier(keys, grants, redis, config.ISSUER),
     tokens: new TokenService(keys, {
       issuer: config.ISSUER,
       serverSecret,
@@ -137,6 +148,8 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
   registerInteractionRoutes(app, ctx);
   registerTokenRoutes(app, ctx);
   registerUserinfoRoutes(app, ctx);
+  registerTokenManagementRoutes(app, ctx);
+  registerLogoutRoutes(app, ctx);
   registerAccountRoutes(app, ctx);
 
   return { app, ctx };

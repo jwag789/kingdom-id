@@ -4,7 +4,7 @@
 
 Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'd add any OIDC provider. Users get one account across all of them, with privacy built in:
 
-- **A different identity per app.** Each app sees its own pairwise `sub`, so two apps can't link a user by ID. *(Built.)*
+- **Private by default with third parties, unified across Kingdom apps.** Third-party apps each see their own pairwise `sub`, so they can't link a user by ID. Kingdom's own apps share one, so perks and the dashboard follow the person. *(Built.)*
 - **Passkey-first sign-in**, with a password as the fallback. *(Phase 4.)*
 - **A private relay email per app**, so the real address never leaves Kingdom. *(Phase 6.)*
 - **One dashboard** listing every connected app, what it received, and a one-click disconnect. *(Phase 5.)*
@@ -16,7 +16,7 @@ Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'
 | Phase | Scope | State |
 |---|---|---|
 | 1 | Core provider: discovery, JWKS with rotation, code flow with PKCE, ID tokens, userinfo, consent, signup and login, demo client | ✅ Done |
-| 2 | Refresh tokens with rotation and reuse detection, revocation, introspection, logout | Planned |
+| 2 | Refresh tokens with rotation and reuse detection, revocation, introspection, logout | ✅ Done |
 | 3 | OpenID Foundation conformance suite in CI | Planned |
 | 4 | Passkeys and the designed sign-in experience | Planned |
 | 5 | "Your Kingdom" dashboard | Planned |
@@ -84,8 +84,8 @@ pnpm test:e2e    # Playwright through the demo client, with axe-core WCAG 2.1 AA
 ```
 
 - **Unit tests** cover PKCE (including the RFC 7636 Appendix B vector), authorization request validation, redirect URI rules, key encryption and config.
-- **Integration tests** run the real app against real Postgres and Redis: the full flow, key rotation (including five instances rotating at once), token endpoint attacks, CSRF, cookies, rate limits and headers.
-- **An interop test** drives the whole flow with [`openid-client`](https://github.com/panva/openid-client), an independent certified relying-party library, so the provider is shown to be interoperable and not just consistent with itself.
+- **Integration tests** run the real app against real Postgres and Redis: the full flow, key rotation (including five instances rotating at once), refresh token rotation and reuse detection (including concurrent exchanges), code replay, revocation, introspection, logout, token endpoint attacks, CSRF, cookies, rate limits and headers.
+- **An interop test** drives everything with [`openid-client`](https://github.com/panva/openid-client), an independent certified relying-party library: discovery, authorization, token exchange, userinfo, refresh, introspection, revocation and RP-initiated logout. This shows the provider is interoperable, not just consistent with itself.
 
 CI runs lint, typecheck, build, the test suite and the browser e2e on every push.
 
@@ -94,6 +94,11 @@ CI runs lint, typecheck, build, the test suite and the browser e2e on every push
 | Feature | Specification |
 |---|---|
 | Authorization code grant | RFC 6749 §4.1 |
+| Refresh tokens with rotation and reuse detection | RFC 6749 §6; RFC 9700 §4.14.2 |
+| Token revocation | RFC 7009 |
+| Token introspection | RFC 7662 |
+| RP-initiated logout | OpenID Connect RP-Initiated Logout 1.0 |
+| `offline_access` | OpenID Connect Core 1.0 §11 |
 | PKCE, S256 only, required for every client | RFC 7636; RFC 9700 §2.1.1 |
 | ID tokens, UserInfo, `prompt`, `max_age`, `id_token_hint`, `nonce`, `at_hash` | OpenID Connect Core 1.0 |
 | Pairwise subject identifiers | OpenID Connect Core 1.0 §8.1 |
@@ -105,7 +110,7 @@ CI runs lint, typecheck, build, the test suite and the browser e2e on every push
 | `prompt=create` | OpenID Connect Initiating User Registration 1.0 |
 | Security best current practice | RFC 9700 (OAuth 2.0 Security BCP) |
 
-Planned: RFC 7009 (revocation), RFC 7662 (introspection), RP-initiated logout, and WebAuthn Level 3.
+Planned: WebAuthn Level 3 (phase 4).
 
 ## Conformance
 
@@ -119,7 +124,11 @@ _Phase 8 adds a k6 load test of the token endpoint across two instances. Results
 
 | Threat | Mitigation |
 |---|---|
-| Authorization code interception or injection | PKCE is mandatory, S256 only. Codes are single-use (atomic `GETDEL`), expire after 60 seconds, and are bound to the client and redirect URI. A replayed code is logged; phase 2 also revokes the tokens issued from it. |
+| Authorization code interception or injection | PKCE is mandatory, S256 only. Codes are single-use (atomic `GETDEL`), expire after 60 seconds, and are bound to the client and redirect URI. Redeeming a code twice revokes every token the first redemption produced. |
+| Refresh token theft | Rotation on every use. Presenting a spent token revokes the whole family (the grant, its refresh tokens and every access token minted from it). Tokens are bound to their client, expire after 30 idle days, and no family outlives 90 days. Only hashes are stored, and the `krt_` prefix lets secret scanners spot leaked tokens. |
+| Revoked access tokens still accepted | JWT access tokens carry their grant ID (`gid`). UserInfo and introspection check the grant is live and the token's `jti` isn't on the Redis revocation list, so revocation, reuse detection, logout and code replay take effect immediately, not at expiry. |
+| Token probing via revocation or introspection | Revocation answers 200 for unknown and foreign tokens. Introspection requires a confidential client and reports other clients' tokens as inactive. |
+| Forced logout via a crafted link | RP-initiated logout asks for confirmation unless the app's `id_token_hint` names the current session (matching `sid`). Post-logout redirects require an exact match against registered URIs. |
 | Open redirect or code leakage via `redirect_uri` | Exact string matching against registered URIs. Errors are never redirected until the client and redirect URI are verified. Registered URIs must be https (http only for loopback) with no fragments. `Referrer-Policy: no-referrer`. |
 | IdP mix-up | The `iss` response parameter (RFC 9207), advertised in discovery. |
 | CSRF on login, signup and consent | Signed double-submit tokens (HMAC of a per-browser `__Host-` cookie), a Fetch Metadata check, and `SameSite=Lax` cookies. |
@@ -153,6 +162,14 @@ _Phase 8 adds a k6 load test of the token endpoint across two instances. Results
 **Client secrets hashed with SHA-256, not argon2.** Kingdom ID generates every client secret with 256 bits of entropy, so a slow hash adds no security and would let anyone burn CPU on the token endpoint. Human-chosen passwords use argon2id.
 
 **Rotation without coordination.** Every instance runs the rotation check, and a Postgres advisory lock lets exactly one act. Instances cache keys for 30 seconds, which is safe because a key is published long before it signs and stays published after.
+
+**Grants as the unit of revocation.** Each code exchange creates a grant row. Its refresh tokens are the "family", and every access token carries its ID. Revoking one row (reuse, replay, client revocation, logout, or a user disconnecting an app in phase 5) invalidates everything derived from it, with no denylist to keep in sync.
+
+**Strict reuse detection, no grace window.** Some providers tolerate a reused refresh token for a few seconds to absorb client retries. Kingdom ID doesn't: two concurrent exchanges of one token revoke the family, and the client must sign the user in again. That is safer, and a well-behaved client never sends the same refresh token twice.
+
+**Offline grants survive logout.** Signing out ends the browser session and its online grants immediately. Grants with `offline_access` are the ones a user explicitly let outlive their session, so they continue until revoked or disconnected, as OIDC Core §11 intends.
+
+**First-party apps share a subject.** Kingdom's own apps are registered as first-party and share one pairwise sector, so Cappuccino and InkSpirit see the same `sub` for the same person. Every other app gets its own sector, so third parties still can't correlate users.
 
 **Authorization codes and interactions in Redis.** They're short-lived, written once and read once. `GETDEL` makes single use atomic across instances without a database round trip.
 

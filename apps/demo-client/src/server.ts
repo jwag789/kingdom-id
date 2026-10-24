@@ -26,7 +26,7 @@ const config = await oidc.discovery(
 );
 
 // Demo-grade session store. A real app would use its framework's sessions.
-const sessions = new Map<string, { idTokenClaims: Record<string, unknown>; userinfo: Record<string, unknown> }>();
+const sessions = new Map<string, { idToken: string; idTokenClaims: Record<string, unknown>; userinfo: Record<string, unknown> }>();
 const pending = new Map<string, { verifier: string; state: string; nonce: string }>();
 
 const app = Fastify({ logger: true });
@@ -47,7 +47,8 @@ app.get("/", async (req, reply) => {
     <h1 data-testid="greeting">Signed in as ${esc(String(session.userinfo.name ?? session.userinfo.sub))}</h1>
     <h2>ID token claims</h2><pre data-testid="id-token">${esc(JSON.stringify(session.idTokenClaims, null, 2))}</pre>
     <h2>UserInfo response</h2><pre data-testid="userinfo">${esc(JSON.stringify(session.userinfo, null, 2))}</pre>
-    <a class="button" href="/logout">Sign out of the demo</a>`);
+    <a class="button" href="/logout">Sign out of the demo</a>
+    <a class="button secondary" href="/logout?everywhere=1">Sign out of Kingdom too</a>`);
 });
 
 app.get("/login", async (_req, reply) => {
@@ -84,7 +85,7 @@ app.get("/callback", async (req, reply) => {
     const claims = tokens.claims()!;
     const userinfo = await oidc.fetchUserInfo(config, tokens.access_token, claims.sub);
     const sid = randomBytes(16).toString("base64url");
-    sessions.set(sid, { idTokenClaims: { ...claims }, userinfo: { ...userinfo } });
+    sessions.set(sid, { idToken: tokens.id_token!, idTokenClaims: { ...claims }, userinfo: { ...userinfo } });
     reply.setCookie("demo_sid", sid, cookieOpts);
     return reply.redirect("/", 303);
   } catch (err) {
@@ -94,10 +95,16 @@ app.get("/callback", async (req, reply) => {
   }
 });
 
-app.get("/logout", async (req, reply) => {
+app.get<{ Querystring: { everywhere?: string } }>("/logout", async (req, reply) => {
   const sid = req.unsignCookie(req.cookies.demo_sid ?? "");
+  const session = sid.valid && sid.value ? sessions.get(sid.value) : undefined;
   if (sid.valid && sid.value) sessions.delete(sid.value);
   reply.clearCookie("demo_sid", { path: "/" });
+  if (req.query.everywhere && session) {
+    // RP-initiated logout: Kingdom ID ends its session too, then sends the browser back here.
+    const url = oidc.buildEndSessionUrl(config, { id_token_hint: session.idToken, post_logout_redirect_uri: `${baseUrl}/` });
+    return reply.redirect(url.href, 303);
+  }
   return reply.redirect("/", 303);
 });
 
@@ -109,6 +116,7 @@ function page(body: string) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Kingdom Demo</title><style>
 body{font-family:system-ui,sans-serif;max-width:46rem;margin:3rem auto;padding:0 1rem;background:#f6f8fc;color:#0a0f24}
+.button.secondary{background:#fff;color:#0a0f24;border:1px solid #dde2ec}
 .button{display:inline-block;background:#0054ee;color:#fff;padding:.75rem 1.25rem;border-radius:999px;text-decoration:none;font-weight:600}
 pre{background:#fff;border:1px solid #dde2ec;border-radius:12px;padding:1rem;overflow:auto}
 </style></head><body>${body}</body></html>`;

@@ -182,15 +182,25 @@ export async function redeem(
   params: Record<string, string>,
   auth?: { id: string; secret: string },
 ) {
+  return clientPost(app, "/token", { grant_type: "authorization_code", ...params }, auth);
+}
+
+/** A client-authenticated form POST to /token, /revoke or /introspect. */
+export async function clientPost(
+  app: FastifyInstance,
+  url: string,
+  params: Record<string, string>,
+  auth?: { id: string; secret: string },
+) {
   return app.inject({
     method: "POST",
-    url: "/token",
+    url,
     remoteAddress: `10.200.${rand()}.${rand()}`,
     headers: {
       "content-type": "application/x-www-form-urlencoded",
       ...(auth ? { authorization: basicAuth(auth.id, auth.secret) } : {}),
     },
-    payload: new URLSearchParams({ grant_type: "authorization_code", ...params }).toString(),
+    payload: new URLSearchParams(params).toString(),
   });
 }
 

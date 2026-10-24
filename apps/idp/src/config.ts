@@ -30,6 +30,10 @@ const schema = z.object({
   AUTH_CODE_TTL_SECONDS: duration.default(60),
   INTERACTION_TTL_SECONDS: duration.default(900),
   SESSION_TTL_SECONDS: duration.default(60 * 60 * 24 * 14),
+  // A refresh token unused for the idle TTL expires; no rotation chain lives
+  // past the absolute TTL, after which the user must sign in again.
+  REFRESH_TOKEN_IDLE_TTL_SECONDS: duration.default(60 * 60 * 24 * 30),
+  REFRESH_TOKEN_ABSOLUTE_TTL_SECONDS: duration.default(60 * 60 * 24 * 90),
   // How long a key stays active before rotation, and how long a retired key
   // stays in the JWKS so tokens it signed can still be verified.
   KEY_ROTATION_INTERVAL_SECONDS: duration.default(60 * 60 * 24 * 30),

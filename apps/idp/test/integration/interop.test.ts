@@ -21,7 +21,10 @@ describe("interop with openid-client", () => {
   afterAll(() => t.close());
 
   it("completes discovery, authorization, token exchange and userinfo", async () => {
-    const { client, secret } = await registerClient(t.ctx, { redirectUris: ["http://localhost:9/callback"] });
+    const { client, secret } = await registerClient(t.ctx, {
+      redirectUris: ["http://localhost:9/callback"],
+      postLogoutRedirectUris: ["http://localhost:9/"],
+    });
     const config = await oidc.discovery(
       new URL(issuer),
       client.id,
@@ -35,7 +38,7 @@ describe("interop with openid-client", () => {
     const nonce = oidc.randomNonce();
     const authUrl = oidc.buildAuthorizationUrl(config, {
       redirect_uri: client.redirectUris[0]!,
-      scope: "openid profile email",
+      scope: "openid profile email offline_access",
       code_challenge: await oidc.calculatePKCECodeChallenge(verifier),
       code_challenge_method: "S256",
       state,
@@ -83,6 +86,23 @@ describe("interop with openid-client", () => {
 
     const userinfo = await oidc.fetchUserInfo(config, tokens.access_token, claims.sub);
     expect(userinfo).toMatchObject({ sub: claims.sub, email, name: "Interop" });
+
+    // Token lifecycle: refresh (with rotation), introspection, revocation.
+    const refreshed = await oidc.refreshTokenGrant(config, tokens.refresh_token!);
+    expect(refreshed.refresh_token).not.toBe(tokens.refresh_token);
+    expect(refreshed.claims()!.sub).toBe(claims.sub);
+    expect(await oidc.tokenIntrospection(config, refreshed.access_token)).toMatchObject({ active: true, sub: claims.sub });
+    await oidc.tokenRevocation(config, refreshed.refresh_token!);
+    expect(await oidc.tokenIntrospection(config, refreshed.access_token)).toMatchObject({ active: false });
+
+    // RP-initiated logout with the library's own end-session URL.
+    const endSession = oidc.buildEndSessionUrl(config, {
+      id_token_hint: tokens.id_token!,
+      post_logout_redirect_uri: "http://localhost:9/",
+      state: "done",
+    });
+    const logout = await go(endSession.href);
+    expect(logout.location).toBe("http://localhost:9/?state=done");
   });
 });
 

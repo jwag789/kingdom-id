@@ -4,6 +4,7 @@ import { EmailTakenError, signupSchema } from "../accounts/users.js";
 import type { Context } from "../context.js";
 import { cookieOptions } from "../security/cookies.js";
 import { limits } from "../security/rate-limit.js";
+import { signOut } from "./logout.js";
 import { sendPage } from "../views/layout.js";
 import { AccountPage, LoginPage, MessagePage, SignupPage } from "../views/pages.js";
 
@@ -120,9 +121,7 @@ export function registerAccountRoutes(app: FastifyInstance, ctx: Context) {
 
   app.post("/logout", async (req, reply) => {
     ctx.csrf.verify(req);
-    const active = await ctx.sessions.resolve(req.cookies[ctx.sessionCookie]);
-    if (active) await ctx.sessions.revoke(active.session.id);
-    reply.clearCookie(ctx.sessionCookie, cookieOptions(ctx.config.secureCookies));
+    await signOut(ctx, req, reply);
     return reply.redirect("/login", 303);
   });
 

@@ -1,6 +1,5 @@
 import type { Client, Session, User } from "@kingdom-id/db";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { compactVerify, createLocalJWKSet, decodeJwt } from "jose";
 import type { Context } from "../context.js";
 import {
   type AuthorizationRequest,
@@ -10,6 +9,7 @@ import {
   parseAuthorizationRequest,
 } from "../oauth/authorize.js";
 import { covers } from "../oauth/consents.js";
+import { audiences, verifyIdTokenHint } from "../oauth/id-token-hint.js";
 import { subjectFor } from "../oauth/subject.js";
 import { limits } from "../security/rate-limit.js";
 import { sendPage } from "../views/layout.js";
@@ -77,17 +77,11 @@ async function mustReauthenticate(
     if (age > request.maxAge) return true;
   }
   if (request.idTokenHint) {
-    // The hint may be expired (OIDC Core §3.1.2.1), so only the signature,
-    // issuer and audience are checked, then its sub is compared.
-    try {
-      await compactVerify(request.idTokenHint, createLocalJWKSet(await ctx.keys.jwks()));
-      const hint = decodeJwt(request.idTokenHint);
-      const aud = Array.isArray(hint.aud) ? hint.aud : [hint.aud];
-      if (hint.iss !== ctx.config.ISSUER || !aud.includes(client.id)) return true;
-      if (hint.sub !== subjectFor(ctx.serverSecret, client, user.id)) return true;
-    } catch {
-      return true;
-    }
+    // A hint for someone else (or an unverifiable one) means the app expects
+    // a different user than the one signed in.
+    const hint = await verifyIdTokenHint(ctx.keys, ctx.config.ISSUER, request.idTokenHint);
+    if (!hint || !audiences(hint).includes(client.id)) return true;
+    if (hint.sub !== subjectFor(ctx.serverSecret, client, user.id)) return true;
   }
   return false;
 }

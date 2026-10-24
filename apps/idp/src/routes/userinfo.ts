@@ -1,7 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import type { JWTPayload } from "jose";
 import type { Context } from "../context.js";
-import type { AccessTokenClaims } from "../oauth/tokens.js";
 import { userClaims } from "../oauth/scopes.js";
 import { limits } from "../security/rate-limit.js";
 
@@ -29,18 +27,9 @@ export function registerUserinfoRoutes(app: FastifyInstance, ctx: Context) {
     const token = fromHeader ?? fromBody;
     if (!token) return unauthorized();
 
-    let claims: AccessTokenClaims;
-    try {
-      claims = await ctx.keys.verify<AccessTokenClaims & JWTPayload>(token, {
-        issuer: ctx.config.ISSUER,
-        audience: ctx.config.ISSUER,
-        typ: "at+jwt",
-        algorithms: ["RS256"],
-        requiredClaims: ["sub", "client_id", "scope", "exp"],
-      });
-    } catch {
-      return unauthorized("invalid_token", "access token is invalid or expired");
-    }
+    const verified = await ctx.accessTokens.verify(token);
+    if (!verified) return unauthorized("invalid_token", "access token is invalid, expired, or revoked");
+    const { claims } = verified;
 
     // The consent row maps the client-specific sub back to the user, and its
     // absence means the user disconnected the app: the token stops working.

@@ -1,6 +1,6 @@
 import type { User } from "@kingdom-id/db";
 
-export const SUPPORTED_SCOPES = ["openid", "profile", "email"] as const;
+export const SUPPORTED_SCOPES = ["openid", "profile", "email", "offline_access"] as const;
 export type Scope = (typeof SUPPORTED_SCOPES)[number];
 
 /** Standard claims released per scope (OIDC Core §5.4), limited to what Kingdom ID stores. */
@@ -8,6 +8,7 @@ export const SCOPE_CLAIMS: Record<Scope, readonly string[]> = {
   openid: ["sub"],
   profile: ["name", "updated_at"],
   email: ["email", "email_verified"],
+  offline_access: [],
 };
 
 export const CLAIMS_SUPPORTED = [
@@ -19,6 +20,7 @@ export const SCOPE_DESCRIPTIONS: Record<Scope, string | null> = {
   openid: null, // implied by signing in at all
   profile: "Your name",
   email: "Your email address",
+  offline_access: "Stay connected when you're not using it, until you disconnect it",
 };
 
 /** Splits a scope parameter, dropping duplicates and anything we don't support (RFC 6749 §3.3 lets us narrow). */

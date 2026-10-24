@@ -20,6 +20,7 @@ const { secret } = await new ClientService(db).create({
   name: "Kingdom Demo",
   type: "confidential",
   redirectUris: [redirectUri],
+  postLogoutRedirectUris: [new URL("/", redirectUri).toString()],
   // Reuse a secret already in .env so re-seeding doesn't break a running demo.
   ...(process.env.DEMO_CLIENT_SECRET ? { secret: process.env.DEMO_CLIENT_SECRET } : {}),
 });
