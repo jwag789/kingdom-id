@@ -10,6 +10,7 @@ import { sha256 } from "../../src/lib/crypto.js";
 
 const client = {
   id: "app",
+  requirePkce: true,
   name: "App",
   redirectUris: ["https://app.example.com/cb"],
   allowedScopes: ["openid", "profile", "email"],
@@ -62,6 +63,17 @@ describe("authorization request validation", () => {
     expect(await redirectCode({ code_challenge_method: undefined })).toBe("invalid_request");
     expect(await redirectCode({ code_challenge_method: "plain" })).toBe("invalid_request");
     expect(await redirectCode({ code_challenge: "short" })).toBe("invalid_request");
+  });
+
+  it("lets only clients with an explicit waiver omit PKCE, and still validates it when sent", async () => {
+    const waived = { ...client, requirePkce: false } as Client;
+    const parseWaived = (o: Record<string, string | undefined>) =>
+      parseAuthorizationRequest({ ...valid, ...o }, async () => waived);
+    const { request } = await parseWaived({ code_challenge: undefined, code_challenge_method: undefined });
+    expect(request.codeChallenge).toBeUndefined();
+    // A waived client that does send PKCE gets the same S256-only checks.
+    await expect(parseWaived({ code_challenge_method: "plain" })).rejects.toBeInstanceOf(RedirectableError);
+    await expect(parseWaived({ code_challenge: undefined })).rejects.toBeInstanceOf(RedirectableError);
   });
 
   it("validates response_type, scope, prompt, max_age and parameter shape", async () => {

@@ -9,7 +9,8 @@ export interface AuthorizationRequest {
   scopes: string[];
   state?: string;
   nonce?: string;
-  codeChallenge: string;
+  /** Absent only for clients registered with requirePkce=false that didn't send one. */
+  codeChallenge?: string;
   prompt: Prompt[];
   maxAge?: number;
   loginHint?: string;
@@ -99,10 +100,15 @@ export async function parseAuthorizationRequest(
   const scopes = parseScope(p.scope, client.allowedScopes);
 
   // PKCE is mandatory for every client, confidential ones included (RFC 9700 §2.1.1),
-  // and only S256: `plain` offers no protection if the request is observed.
-  if (!p.code_challenge) fail("invalid_request", "code_challenge is required (PKCE)");
-  if (p.code_challenge_method !== "S256") fail("invalid_request", "code_challenge_method must be S256");
-  if (!isValidChallenge(p.code_challenge!)) fail("invalid_request", "code_challenge is malformed");
+  // unless the client was registered with an explicit waiver. Whenever PKCE
+  // is used it must be S256: `plain` offers no protection if the request is observed.
+  if (!p.code_challenge && client.requirePkce) fail("invalid_request", "code_challenge is required (PKCE)");
+  if (p.code_challenge) {
+    if (p.code_challenge_method !== "S256") fail("invalid_request", "code_challenge_method must be S256");
+    if (!isValidChallenge(p.code_challenge)) fail("invalid_request", "code_challenge is malformed");
+  } else if (p.code_challenge_method !== undefined) {
+    fail("invalid_request", "code_challenge_method without code_challenge");
+  }
 
   const prompt = (p.prompt ?? "").split(" ").filter(Boolean) as Prompt[];
   if (prompt.some((v) => !PROMPTS.includes(v))) fail("invalid_request", "unsupported prompt value");
@@ -120,7 +126,7 @@ export async function parseAuthorizationRequest(
       clientId: client.id,
       redirectUri,
       scopes,
-      codeChallenge: p.code_challenge!,
+      ...(p.code_challenge ? { codeChallenge: p.code_challenge } : {}),
       prompt,
       ...(state !== undefined ? { state } : {}),
       ...(p.nonce !== undefined ? { nonce: p.nonce } : {}),

@@ -23,6 +23,9 @@ const schema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((v) => v === "true"),
+  // Scales every rate limit. 1 in production; the conformance environment
+  // raises it because one test IP signs one user in dozens of times a minute.
+  RATE_LIMIT_MULTIPLIER: z.coerce.number().positive().default(1),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
 
   ACCESS_TOKEN_TTL_SECONDS: duration.default(600),

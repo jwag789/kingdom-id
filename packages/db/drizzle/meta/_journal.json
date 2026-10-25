@@ -15,6 +15,13 @@
       "when": 1792886039622,
       "tag": "0001_token_lifecycle",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792886763670,
+      "tag": "0002_client_require_pkce",
+      "breakpoints": true
     }
   ]
 }

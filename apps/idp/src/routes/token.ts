@@ -66,15 +66,21 @@ async function authorizationCode(ctx: Context, req: FastifyRequest, client: Clie
   // for the legitimate client too. That's intended: it fails closed.
   if (issued.clientId !== client.id) throw invalidGrant;
   if (body.redirect_uri !== issued.redirectUri) throw invalidGrant;
-  if (!verifyPkce(body.code_verifier, issued.codeChallenge)) {
-    throw new OAuthError("invalid_grant", "PKCE verification failed");
+  if (issued.codeChallenge) {
+    if (!verifyPkce(body.code_verifier, issued.codeChallenge)) {
+      throw new OAuthError("invalid_grant", "PKCE verification failed");
+    }
+  } else if (body.code_verifier !== undefined) {
+    // PKCE downgrade defense (RFC 9700 §2.1.1): a verifier is only accepted
+    // if a challenge was bound to the code.
+    throw new OAuthError("invalid_grant", "code_verifier sent but no code_challenge was used");
   }
 
   const user = await ctx.users.findById(issued.userId);
   if (!user) throw invalidGrant;
   const grant = await ctx.grants.create(issued, codeHash);
   const refresh = grant.offline ? await ctx.grants.issueRefreshToken(grant) : undefined;
-  return ctx.tokens.issue(client, user, grant, {
+  return ctx.tokens.issue(client, grant, {
     scopes: grant.scopes,
     ...(issued.nonce !== undefined ? { nonce: issued.nonce } : {}),
     ...(refresh ? { refreshToken: refresh } : {}),
@@ -107,5 +113,5 @@ async function refreshToken(ctx: Context, req: FastifyRequest, client: Client, b
   // The new refresh token keeps the grant's full scope (RFC 6749 §6); only
   // this access token is narrowed.
   const scopes = requested ? rotation.grant.scopes.filter((s) => requested.includes(s)) : rotation.grant.scopes;
-  return ctx.tokens.issue(client, user, rotation.grant, { scopes, refreshToken: rotation.refreshToken });
+  return ctx.tokens.issue(client, rotation.grant, { scopes, refreshToken: rotation.refreshToken });
 }

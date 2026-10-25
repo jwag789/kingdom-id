@@ -1,0 +1,22 @@
+[
+  {
+    "test-name": "oidcc-scope-address",
+    "variant": "*",
+    "configuration-filename": "*/basic-op.json"
+  },
+  {
+    "test-name": "oidcc-scope-phone",
+    "variant": "*",
+    "configuration-filename": "*/basic-op.json"
+  },
+  {
+    "test-name": "oidcc-scope-all",
+    "variant": "*",
+    "configuration-filename": "*/basic-op.json"
+  },
+  {
+    "test-name": "oidcc-unsigned-request-object-supported-correctly-or-rejected-as-unsupported",
+    "variant": "*",
+    "configuration-filename": "*/basic-op.json"
+  }
+]

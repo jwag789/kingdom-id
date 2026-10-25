@@ -1,0 +1,29 @@
+[
+  {
+    "test-name": "oidcc-scope-profile",
+    "variant": "*",
+    "configuration-filename": "*/basic-op.json",
+    "current-block": "",
+    "condition": "VerifyScopesReturnedInUserInfoClaims",
+    "expected-result": "warning",
+    "comment": "Kingdom ID stores only name and updated_at from the profile scope; OIDC Core 5.4 makes the rest optional."
+  },
+  {
+    "test-name": "oidcc-ensure-request-with-acr-values-succeeds",
+    "variant": "*",
+    "configuration-filename": "*/basic-op.json",
+    "current-block": "Verify authorization endpoint response",
+    "condition": "ValidateIdTokenACRClaimAgainstAcrValuesRequest",
+    "expected-result": "warning",
+    "comment": "acr_values is a voluntary request (OIDC Core 3.1.2.1); no acr claim is issued until authentication levels exist (passkeys, phase 4)."
+  },
+  {
+    "test-name": "oidcc-claims-essential",
+    "variant": "*",
+    "configuration-filename": "*/basic-op.json",
+    "current-block": "",
+    "condition": "EnsureUserInfoContainsName",
+    "expected-result": "warning",
+    "comment": "The claims request parameter is not supported (claims_parameter_supported: false in discovery), so an essential claim requested only through it is not released."
+  }
+]

@@ -54,7 +54,10 @@ describe("authorization code flow, end to end", () => {
       audience: client.id,
     });
     expect(protectedHeader.alg).toBe("RS256");
-    expect(id).toMatchObject({ nonce: flow.nonce, email: flow.email, name: "Ada Lovelace", amr: ["pwd"] });
+    expect(id).toMatchObject({ nonce: flow.nonce, amr: ["pwd"] });
+    // Personal claims travel through UserInfo, not the ID token (OIDC Core §5.4).
+    expect(id.email).toBeUndefined();
+    expect(id.name).toBeUndefined();
     expect(id.auth_time).toBeTypeOf("number");
     expect(id.at_hash).toBe(leftHalfHash(tokens.access_token));
     expect(id.sid).toBeTypeOf("string");

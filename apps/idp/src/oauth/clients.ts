@@ -54,6 +54,11 @@ export interface CreateClientInput {
   subjectType?: "public" | "pairwise";
   idTokenSignedResponseAlg?: "RS256" | "ES256";
   tokenEndpointAuthMethod?: "client_secret_basic" | "client_secret_post";
+  /**
+   * Waives mandatory PKCE for this client. Exists for the OpenID conformance
+   * suite's static clients only; never the default.
+   */
+  requirePkce?: boolean;
   /** Fixtures only (seed, e2e). Normal registration always generates the secret. */
   secret?: string;
 }
@@ -83,6 +88,7 @@ export class ClientService {
       redirectUris: input.redirectUris,
       postLogoutRedirectUris: input.postLogoutRedirectUris ?? [],
       firstParty: input.firstParty ?? false,
+      requirePkce: input.requirePkce ?? true,
       allowedScopes: input.allowedScopes ?? [...SUPPORTED_SCOPES],
       subjectType: input.subjectType ?? "pairwise",
       sectorIdentifier: input.firstParty ? FIRST_PARTY_SECTOR : host,

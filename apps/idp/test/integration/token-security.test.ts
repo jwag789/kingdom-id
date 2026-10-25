@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sha256 } from "../../src/lib/crypto.js";
-import { type TestApp, basicAuth, createTestApp, redeem, registerClient, signUpAndAuthorize } from "../helpers.js";
+import { Browser, PASSWORD, authorizeUrl, location, uniqueEmail, type TestApp, basicAuth, createTestApp, redeem, registerClient, signUpAndAuthorize } from "../helpers.js";
 
 describe("token endpoint security", () => {
   let t: TestApp;
@@ -28,6 +28,36 @@ describe("token endpoint security", () => {
     const { client, secret, flow } = await freshCode();
     const res = await redeem(t.app, { code: flow.code, redirect_uri: flow.redirectUri }, { id: client.id, secret });
     expect(res.json().error).toBe("invalid_grant");
+  });
+
+  it("rejects a code_verifier when no challenge was sent (PKCE downgrade)", async () => {
+    const { client, secret } = await registerClient(t.ctx, { requirePkce: false });
+    const browser = new Browser(t.app);
+    const start = await browser.get(authorizeUrl({ client_id: client.id, redirect_uri: client.redirectUris[0]! }));
+    const interaction = location(start).pathname;
+    await browser.submit(`${interaction}/signup`, `${interaction}/signup`, { name: "D", email: uniqueEmail(), password: PASSWORD });
+    const consent = await browser.submit(interaction, `${interaction}/consent`, { decision: "allow" });
+    const code = location(consent).searchParams.get("code")!;
+    const res = await redeem(t.app, { code, redirect_uri: client.redirectUris[0]!, code_verifier: "x".repeat(43) }, { id: client.id, secret: secret! });
+    expect(res.json().error).toBe("invalid_grant");
+  });
+
+  it("lets a waived client complete the flow without PKCE", async () => {
+    const { client, secret } = await registerClient(t.ctx, { requirePkce: false });
+    const browser = new Browser(t.app);
+    const start = await browser.get(authorizeUrl({ client_id: client.id, redirect_uri: client.redirectUris[0]! }));
+    const interaction = location(start).pathname;
+    await browser.submit(`${interaction}/signup`, `${interaction}/signup`, { name: "W", email: uniqueEmail(), password: PASSWORD });
+    const consent = await browser.submit(interaction, `${interaction}/consent`, { decision: "allow" });
+    const code = location(consent).searchParams.get("code")!;
+    const res = await redeem(t.app, { code, redirect_uri: client.redirectUris[0]! }, { id: client.id, secret: secret! });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("still requires PKCE from clients without the waiver", async () => {
+    const { client } = await registerClient(t.ctx);
+    const res = await new Browser(t.app).get(authorizeUrl({ client_id: client.id, redirect_uri: client.redirectUris[0]! }));
+    expect(location(res).searchParams.get("error")).toBe("invalid_request");
   });
 
   it("redeems a code exactly once", async () => {

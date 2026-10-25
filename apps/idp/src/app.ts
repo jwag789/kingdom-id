@@ -94,7 +94,7 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
       idTokenTtl: config.ID_TOKEN_TTL_SECONDS,
     }),
     csrf: new Csrf(serverSecret, config.secureCookies),
-    rateLimiter: new RateLimiter(redis),
+    rateLimiter: new RateLimiter(redis, config.RATE_LIMIT_MULTIPLIER),
   };
 
   await app.register(cookie);

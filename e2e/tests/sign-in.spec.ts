@@ -36,7 +36,7 @@ test("a new user signs up through the demo app and comes back signed in", async 
   // Back on the demo app, which verified everything with openid-client.
   await expect(page).toHaveURL("http://localhost:4001/");
   await expect(page.getByTestId("greeting")).toHaveText("Signed in as Ada Lovelace");
-  await expect(page.getByTestId("id-token")).toContainText(email);
+  await expect(page.getByTestId("userinfo")).toContainText(email);
   await expect(page.getByTestId("userinfo")).toContainText('"email_verified": false');
 
   // Signing in to the demo again rides the Kingdom session and stored consent: no screens.

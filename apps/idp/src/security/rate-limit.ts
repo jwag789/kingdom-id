@@ -41,7 +41,10 @@ export class RateLimitedError extends Error {
 let seq = 0;
 
 export class RateLimiter {
-  constructor(private readonly redis: Redis) {}
+  constructor(
+    private readonly redis: Redis,
+    private readonly multiplier = 1,
+  ) {}
 
   /** Consumes one unit from every rule; throws RateLimitedError if any is exhausted. */
   async consume(rules: Rule[]): Promise<void> {
@@ -54,7 +57,7 @@ export class RateLimiter {
         1,
         key,
         rule.windowSeconds * 1000,
-        rule.limit,
+        Math.ceil(rule.limit * this.multiplier),
         member,
       )) as [number, number];
       if (allowed !== 1) throw new RateLimitedError(Math.max(1, Math.ceil(retryMs / 1000)));

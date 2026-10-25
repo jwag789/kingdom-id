@@ -103,7 +103,7 @@ export async function completeAuthorization(
     sub,
     redirectUri: request.redirectUri,
     scopes: request.scopes,
-    codeChallenge: request.codeChallenge,
+    ...(request.codeChallenge ? { codeChallenge: request.codeChallenge } : {}),
     authTime: Math.floor(session.authTime.getTime() / 1000),
     amr: session.amr,
     ...(request.nonce !== undefined ? { nonce: request.nonce } : {}),

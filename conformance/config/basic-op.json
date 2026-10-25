@@ -1,0 +1,258 @@
+{
+  "alias": "kingdom-id",
+  "description": "Kingdom ID: Basic OP (static clients, discovery)",
+  "server": {
+    "discoveryUrl": "https://id.kingdom.test/.well-known/openid-configuration"
+  },
+  "client": {
+    "client_id": "conformance-basic",
+    "client_secret": "conformance-client-secret-not-secret-0001"
+  },
+  "client2": {
+    "client_id": "conformance-basic-2",
+    "client_secret": "conformance-client-secret-not-secret-0002"
+  },
+  "client_secret_post": {
+    "client_id": "conformance-post",
+    "client_secret": "conformance-client-secret-not-secret-0003"
+  },
+  "browser": [
+    {
+      "match": "https://id.kingdom.test/authorize*",
+      "tasks": [
+        {
+          "task": "Login",
+          "optional": true,
+          "match": "https://id.kingdom.test/interaction*",
+          "commands": [
+            [
+              "text",
+              "id",
+              "email",
+              "conformance@kingdom.test",
+              "optional"
+            ],
+            [
+              "text",
+              "id",
+              "password",
+              "conformance-password-not-secret",
+              "optional"
+            ],
+            [
+              "click",
+              "css",
+              "button.primary"
+            ]
+          ]
+        },
+        {
+          "task": "Consent",
+          "optional": true,
+          "match": "https://id.kingdom.test/interaction*",
+          "commands": [
+            [
+              "click",
+              "css",
+              "button.primary"
+            ]
+          ]
+        },
+        {
+          "task": "Verify Complete",
+          "match": "*/test/*/callback*",
+          "commands": [
+            [
+              "wait",
+              "id",
+              "submission_complete",
+              10
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "override": {
+    "oidcc-prompt-login": {
+      "browser": [
+        {
+          "match": "https://id.kingdom.test/authorize*",
+          "tasks": [
+            {
+              "task": "Login",
+              "optional": true,
+              "match": "https://id.kingdom.test/interaction*",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "Sign in",
+                  "update-image-placeholder-optional"
+                ],
+                [
+                  "text",
+                  "id",
+                  "email",
+                  "conformance@kingdom.test",
+                  "optional"
+                ],
+                [
+                  "text",
+                  "id",
+                  "password",
+                  "conformance-password-not-secret",
+                  "optional"
+                ],
+                [
+                  "click",
+                  "css",
+                  "button.primary"
+                ]
+              ]
+            },
+            {
+              "task": "Consent",
+              "optional": true,
+              "match": "https://id.kingdom.test/interaction*",
+              "commands": [
+                [
+                  "click",
+                  "css",
+                  "button.primary"
+                ]
+              ]
+            },
+            {
+              "task": "Verify Complete",
+              "match": "*/test/*/callback*",
+              "commands": [
+                [
+                  "wait",
+                  "id",
+                  "submission_complete",
+                  10
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "oidcc-max-age-1": {
+      "browser": [
+        {
+          "match": "https://id.kingdom.test/authorize*",
+          "tasks": [
+            {
+              "task": "Login",
+              "optional": true,
+              "match": "https://id.kingdom.test/interaction*",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "Sign in",
+                  "update-image-placeholder-optional"
+                ],
+                [
+                  "text",
+                  "id",
+                  "email",
+                  "conformance@kingdom.test",
+                  "optional"
+                ],
+                [
+                  "text",
+                  "id",
+                  "password",
+                  "conformance-password-not-secret",
+                  "optional"
+                ],
+                [
+                  "click",
+                  "css",
+                  "button.primary"
+                ]
+              ]
+            },
+            {
+              "task": "Consent",
+              "optional": true,
+              "match": "https://id.kingdom.test/interaction*",
+              "commands": [
+                [
+                  "click",
+                  "css",
+                  "button.primary"
+                ]
+              ]
+            },
+            {
+              "task": "Verify Complete",
+              "match": "*/test/*/callback*",
+              "commands": [
+                [
+                  "wait",
+                  "id",
+                  "submission_complete",
+                  10
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "oidcc-ensure-registered-redirect-uri": {
+      "browser": [
+        {
+          "match": "https://id.kingdom.test/authorize*",
+          "tasks": [
+            {
+              "task": "Expect error page, not a redirect",
+              "match": "https://id.kingdom.test/authorize*",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "Unrecognized return address",
+                  "update-image-placeholder"
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "oidcc-ensure-request-object-with-redirect-uri": {
+      "browser": [
+        {
+          "match": "https://id.kingdom.test/authorize*",
+          "tasks": [
+            {
+              "task": "Expect error page, not a redirect",
+              "match": "https://id.kingdom.test/authorize*",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "Unrecognized return address",
+                  "update-image-placeholder"
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

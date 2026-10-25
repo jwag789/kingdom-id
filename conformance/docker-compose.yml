@@ -1,0 +1,103 @@
+# Self-hosted OpenID Foundation conformance suite, run against Kingdom ID.
+# Everything here is throwaway: secrets are fixed test values and no port but
+# the suite's UI (8443) is published. Driven by conformance/run.sh.
+name: kingdom-conformance
+
+x-idp-env: &idp-env
+  NODE_ENV: production
+  ISSUER: https://id.kingdom.test
+  PORT: "4000"
+  DATABASE_URL: postgres://kingdom:kingdom@postgres:5432/kingdom_id
+  REDIS_URL: redis://redis:6379
+  # 32 bytes of 0x01 / 0x02: test-only values.
+  KEY_ENCRYPTION_KEY: AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=
+  SERVER_SECRET: AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI=
+  TRUST_PROXY: "true"
+  RATE_LIMIT_MULTIPLIER: "50"
+  LOG_LEVEL: warn
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: kingdom
+      POSTGRES_PASSWORD: kingdom
+      POSTGRES_DB: kingdom_id
+    tmpfs: /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kingdom -d kingdom_id"]
+      interval: 2s
+      retries: 30
+
+  redis:
+    image: redis:7.4-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      retries: 30
+
+  idp:
+    build: ..
+    environment: *idp-env
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/readyz"]
+      interval: 2s
+      retries: 60
+
+  # One-shot: registers the suite's static clients and test user.
+  seed:
+    build: ..
+    environment:
+      <<: *idp-env
+      CONFORMANCE_REDIRECT_URI: https://localhost.emobix.co.uk:8443/test/a/kingdom-id/callback
+      CONFORMANCE_USER_EMAIL: conformance@kingdom.test
+      CONFORMANCE_USER_PASSWORD: conformance-password-not-secret
+      CONFORMANCE_CLIENT_SECRET: conformance-client-secret-not-secret-0001
+      CONFORMANCE_CLIENT2_SECRET: conformance-client-secret-not-secret-0002
+      CONFORMANCE_CLIENT_POST_SECRET: conformance-client-secret-not-secret-0003
+    command: ["node", "dist/scripts/seed-conformance.js"]
+    depends_on:
+      idp: { condition: service_healthy }
+    profiles: ["seed"]
+
+  caddy:
+    image: caddy:2.10-alpine
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      idp: { condition: service_healthy }
+    networks:
+      default:
+        aliases: [id.kingdom.test]
+
+  # The suite itself: the published images, pinned to a release.
+  mongodb:
+    image: mongo:6.0.13
+    tmpfs: /data/db
+
+  server:
+    image: registry.gitlab.com/openid/conformance-suite:${SUITE_TAG:-release-v5.3.3}
+    environment:
+      BASE_URL: https://localhost.emobix.co.uk:8443
+      BASE_MTLS_URL: https://localhost.emobix.co.uk:8444
+      MONGODB_HOST: mongodb
+      SPRING_PROFILES_ACTIVE: dev
+      # The suite's UI login providers must be configured even though dev mode
+      # skips login; placeholders, as in the suite's own prebuilt compose file.
+      OIDC_GOOGLE_CLIENTID: google-client
+      OIDC_GOOGLE_SECRET: google-secret
+      OIDC_GITLAB_CLIENTID: gitlab-client
+      OIDC_GITLAB_SECRET: gitlab-secret
+    depends_on: [mongodb, caddy]
+
+  nginx:
+    image: registry.gitlab.com/openid/conformance-suite/nginx:${SUITE_TAG:-release-v5.3.3}
+    ports:
+      - "8443:8443"
+    networks:
+      default:
+        aliases: [localhost.emobix.co.uk]
+    depends_on: [server]

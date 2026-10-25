@@ -1,0 +1,6 @@
+# TLS in front of Kingdom ID, as in production. Caddy's internal CA issues the
+# certificate; the conformance suite talks to it over the Docker network.
+id.kingdom.test {
+	tls internal
+	reverse_proxy idp:4000
+}

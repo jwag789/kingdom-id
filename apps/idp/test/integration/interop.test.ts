@@ -82,7 +82,6 @@ describe("interop with openid-client", () => {
     });
     const claims = tokens.claims()!;
     expect(claims.iss).toBe(issuer);
-    expect(claims.email).toBe(email);
 
     const userinfo = await oidc.fetchUserInfo(config, tokens.access_token, claims.sub);
     expect(userinfo).toMatchObject({ sub: claims.sub, email, name: "Interop" });

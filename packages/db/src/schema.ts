@@ -58,6 +58,10 @@ export const clients = pgTable("clients", {
   // share one sector so they recognize the same person across apps.
   sectorIdentifier: text("sector_identifier").notNull(),
   firstParty: boolean("first_party").notNull().default(false),
+  // PKCE is required unless explicitly waived at registration. The only
+  // waiver in use is for the OpenID conformance suite's static clients,
+  // whose Basic OP tests don't send PKCE (see conformance/README.md).
+  requirePkce: boolean("require_pkce").notNull().default(true),
   idTokenSignedResponseAlg: signingAlg("id_token_signed_response_alg").notNull().default("RS256"),
   createdAt: createdAt(),
 });

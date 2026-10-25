@@ -1,9 +1,8 @@
 import { createHash } from "node:crypto";
-import type { Client, Grant, User } from "@kingdom-id/db";
+import type { Client, Grant } from "@kingdom-id/db";
 import { SignJWT } from "jose";
 import type { KeyStore } from "../keys/keystore.js";
 import { randomToken } from "../lib/crypto.js";
-import { userClaims } from "./scopes.js";
 import { sessionIdFor } from "./subject.js";
 
 export interface TokenResponse {
@@ -49,7 +48,7 @@ export class TokenService {
     private readonly options: TokenServiceOptions,
   ) {}
 
-  async issue(client: Client, user: User, grant: Grant, opts: IssueOptions): Promise<TokenResponse> {
+  async issue(client: Client, grant: Grant, opts: IssueOptions): Promise<TokenResponse> {
     const { issuer, accessTokenTtl, idTokenTtl, serverSecret } = this.options;
     const now = Math.floor(Date.now() / 1000);
     const scope = opts.scopes.join(" ");
@@ -73,8 +72,11 @@ export class TokenService {
 
     if (opts.scopes.includes("openid")) {
       const idKey = await this.keys.getActiveKey(client.idTokenSignedResponseAlg);
+      // Profile and email claims are deliberately left out: in the code flow
+      // they're released through UserInfo, against the access token (OIDC
+      // Core §5.4). An ID token is proof of authentication that relying
+      // parties pass around, so it shouldn't carry personal data by default.
       response.id_token = await new SignJWT({
-        ...userClaims(user, opts.scopes),
         // On refresh this stays the original authentication time (OIDC Core §12.2).
         auth_time: authTime,
         amr: grant.amr,

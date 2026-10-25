@@ -9,7 +9,7 @@ export interface CodeGrant {
   redirectUri: string;
   scopes: string[];
   nonce?: string;
-  codeChallenge: string;
+  codeChallenge?: string;
   authTime: number;
   amr: string[];
 }
