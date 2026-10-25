@@ -17,7 +17,7 @@ Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'
 |---|---|---|
 | 1 | Core provider: discovery, JWKS with rotation, code flow with PKCE, ID tokens, userinfo, consent, signup and login, demo client | ✅ Done |
 | 2 | Refresh tokens with rotation and reuse detection, revocation, introspection, logout | ✅ Done |
-| 3 | OpenID Foundation conformance suite in CI | Planned |
+| 3 | OpenID Foundation conformance suite in CI | ✅ Done |
 | 4 | Passkeys and the designed sign-in experience | Planned |
 | 5 | "Your Kingdom" dashboard | Planned |
 | 6 | Email relay via AWS SES | Planned |
@@ -114,7 +114,23 @@ Planned: WebAuthn Level 3 (phase 4).
 
 ## Conformance
 
-_Phase 3 adds the OpenID Foundation conformance suite (Basic OP profile) to CI. Results will be recorded here._
+Every CI run builds Kingdom ID from the production `Dockerfile`, puts it behind TLS, and runs the
+[OpenID Foundation conformance suite](https://gitlab.com/openid/conformance-suite)'s **Basic OP certification plan**
+(`release-v5.3.3`, discovery + static clients) against it. The suite's scripted browser signs in through the real login
+and consent pages. Details and the full reasoning for every non-pass are in [`conformance/README.md`](conformance/README.md).
+
+**Latest result** ([CI run 40160889457](https://github.com/jwag789/kingdom-id/actions/runs/40160889457)): 35 test modules, 1,757 conditions checked, **0 failures**.
+
+| Result | Modules |
+|---|---|
+| ✅ Passed (24) | `oidcc-server`, `oidcc-server-client-secret-post`, `oidcc-response-type-missing`, `oidcc-userinfo-get`, `oidcc-userinfo-post-header`, `oidcc-userinfo-post-body`, `oidcc-ensure-request-without-nonce-succeeds-for-code-flow`, `oidcc-scope-email`, `oidcc-alternate-happy-flow`, `oidcc-display-page`, `oidcc-display-popup`, `oidcc-prompt-none-not-logged-in`, `oidcc-prompt-none-logged-in`, `oidcc-max-age-10000`, `oidcc-ensure-request-with-unknown-parameter-succeeds`, `oidcc-id-token-hint`, `oidcc-login-hint`, `oidcc-ui-locales`, `oidcc-claims-locales`, `oidcc-codereuse`, `oidcc-codereuse-30seconds`, `oidcc-ensure-post-request-succeeds`, `oidcc-refresh-token`, `oidcc-ensure-request-with-valid-pkce-succeeds` |
+| 👀 Review (4) | `oidcc-prompt-login`, `oidcc-max-age-1`, `oidcc-ensure-registered-redirect-uri`, `oidcc-ensure-request-object-with-redirect-uri`: these finish with a screenshot for a human to check (a fresh sign-in page or an error page instead of a redirect). The screenshots are in the CI artifacts. |
+| ⚠️ Warning (3) | `oidcc-scope-profile` (only `name` and `updated_at` exist), `oidcc-ensure-request-with-acr-values-succeeds` (no `acr` claim yet), `oidcc-claims-essential` (the `claims` parameter isn't supported, as discovery declares) |
+| ⏭️ Skipped (4) | `oidcc-scope-address`, `oidcc-scope-phone`, `oidcc-scope-all` (scopes not offered), `oidcc-unsigned-request-object-…` (request objects not supported) |
+
+One deliberate deviation makes the run possible: the Basic OP modules don't send PKCE, so the suite's static clients are
+registered with Kingdom ID's per-client PKCE waiver. Every other client requires PKCE, and the waiver is never a default.
+This is not an official OpenID certification, which requires submitting results to the OpenID Foundation.
 
 ## Benchmarks
 
@@ -124,7 +140,7 @@ _Phase 8 adds a k6 load test of the token endpoint across two instances. Results
 
 | Threat | Mitigation |
 |---|---|
-| Authorization code interception or injection | PKCE is mandatory, S256 only. Codes are single-use (atomic `GETDEL`), expire after 60 seconds, and are bound to the client and redirect URI. Redeeming a code twice revokes every token the first redemption produced. |
+| Authorization code interception or injection | PKCE is mandatory, S256 only (a per-client waiver exists for the conformance suite's static clients; a `code_verifier` without a prior challenge is always rejected, blocking PKCE downgrade). Codes are single-use (atomic `GETDEL`), expire after 60 seconds, and are bound to the client and redirect URI. Redeeming a code twice revokes every token the first redemption produced. |
 | Refresh token theft | Rotation on every use. Presenting a spent token revokes the whole family (the grant, its refresh tokens and every access token minted from it). Tokens are bound to their client, expire after 30 idle days, and no family outlives 90 days. Only hashes are stored, and the `krt_` prefix lets secret scanners spot leaked tokens. |
 | Revoked access tokens still accepted | JWT access tokens carry their grant ID (`gid`). UserInfo and introspection check the grant is live and the token's `jti` isn't on the Redis revocation list, so revocation, reuse detection, logout and code replay take effect immediately, not at expiry. |
 | Token probing via revocation or introspection | Revocation answers 200 for unknown and foreign tokens. Introspection requires a confidential client and reports other clients' tokens as inactive. |
@@ -144,6 +160,10 @@ _Phase 8 adds a k6 load test of the token endpoint across two instances. Results
 | Token confusion | UserInfo accepts only `typ: at+jwt` tokens with the right issuer and audience, so an ID token can't be used as an access token. |
 
 ## Design decisions
+
+**ID tokens carry no personal data by default.** In the code flow, profile and email claims are released through UserInfo
+against the access token (OIDC Core §5.4). ID tokens get passed around as proof of authentication, so they hold only
+`sub`, `auth_time`, `amr`, `sid` and the like. The conformance suite flags the alternative as a data-exposure risk.
 
 **Hand-written protocol layer.** OAuth and OIDC logic (request validation, the interaction state machine, code handling, token issuance) is written directly from the RFCs. Only vetted primitives are libraries: `jose` for JWS/JWK, `@node-rs/argon2`, and later SimpleWebAuthn.
 
