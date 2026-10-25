@@ -1,0 +1,56 @@
+body {
+  margin: 0;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  font-family: system-ui, sans-serif;
+  background: #f6efe6;
+  color: #2b1d14;
+}
+
+.card {
+  max-width: 30rem;
+  margin: 16px;
+  padding: 32px;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 20px 40px -24px rgb(43 29 20 / 0.4);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+button {
+  font: inherit;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid #c9b8a8;
+  background: #fff;
+  cursor: pointer;
+}
+
+/* Sign in with Kingdom: KWB ink with the white Kingdom mark. */
+.kingdom-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 20px;
+  border: 0;
+  color: #fff;
+  font-weight: 600;
+  background: #0a0f24;
+}
+
+.kingdom-button:hover {
+  background: #0054ee;
+}
+
+.kingdom-button:focus-visible {
+  outline: 3px solid #0054ee;
+  outline-offset: 3px;
+}

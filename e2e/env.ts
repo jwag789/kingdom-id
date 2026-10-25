@@ -18,4 +18,5 @@ export const env = {
   DEMO_CLIENT_ID: "kingdom-demo",
   DEMO_CLIENT_SECRET: "e2e-demo-secret-not-for-production-use-0000",
   DEMO_PORT: "4001",
+  CAPPUCCINO_CLIENT_SECRET: "e2e-cappuccino-secret-not-for-production-0000",
 };

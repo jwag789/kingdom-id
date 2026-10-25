@@ -132,7 +132,7 @@ export function AdminPage(props: AdminPageProps) {
                     <label for={`grant-${perk.id}`}>Grant {perk.name} to</label>
                     <div class="inline-field">
                       <input id={`grant-${perk.id}`} name="email" type="email" placeholder="member@example.com" required />
-                      <button type="submit" class="btn btn-primary btn-small">
+                      <button type="submit" class="btn btn-primary btn-small" aria-label={`Grant ${perk.name}`}>
                         Grant
                       </button>
                     </div>

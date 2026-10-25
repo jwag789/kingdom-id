@@ -1,0 +1,74 @@
+# Kingdom ID on one machine: two app containers, Postgres, Redis, and Caddy
+# with automatic HTTPS (Let's Encrypt). For small deployments and staging;
+# see deploy/aws for the production layout.
+#
+#   cp .env.example .env   # fill it in
+#   docker compose up -d
+#   docker compose exec app-1 node dist/cli/bin.js help
+name: kingdom-id
+
+x-app: &app
+  image: ${KINGDOM_ID_IMAGE:-ghcr.io/jwag789/kingdom-id:latest}
+  restart: unless-stopped
+  env_file: .env
+  environment:
+    NODE_ENV: production
+    PORT: "4000"
+    TRUST_PROXY: "true"
+    DATABASE_URL: postgres://kingdom:${POSTGRES_PASSWORD}@postgres:5432/kingdom_id
+    REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+  read_only: true
+  depends_on:
+    postgres: { condition: service_healthy }
+    redis: { condition: service_healthy }
+  healthcheck:
+    test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/readyz"]
+    interval: 10s
+    retries: 6
+
+services:
+  app-1: *app
+  app-2: *app
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kingdom
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: kingdom_id
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kingdom -d kingdom_id"]
+      interval: 5s
+      retries: 20
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes"]
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "--no-auth-warning", "ping"]
+      interval: 5s
+      retries: 20
+
+  caddy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      ISSUER_HOST: ${ISSUER_HOST}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy:/data
+    depends_on: [app-1, app-2]
+
+volumes:
+  postgres:
+  redis:
+  caddy:

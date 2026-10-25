@@ -28,6 +28,21 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm build
 
+  terraform:
+    name: Terraform (deploy/aws)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: deploy/aws
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.13.x"
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate
+
   test:
     name: Unit and integration tests
     runs-on: ubuntu-latest

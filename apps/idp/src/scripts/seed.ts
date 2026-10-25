@@ -38,6 +38,21 @@ for (const perk of [
 ]) {
   await perkService.create({ clientId: id, ...perk });
 }
+
+// The Next.js example (examples/cappuccino), when a fixture secret is supplied.
+if (process.env.CAPPUCCINO_CLIENT_SECRET) {
+  await db.delete(clients).where(eq(clients.id, "cappuccino"));
+  await new ClientService(db).create({
+    id: "cappuccino",
+    name: "Cappuccino",
+    type: "confidential",
+    firstParty: true,
+    redirectUris: ["http://localhost:4002/api/auth/callback/kingdom"],
+    postLogoutRedirectUris: ["http://localhost:4002/"],
+    secret: process.env.CAPPUCCINO_CLIENT_SECRET,
+  });
+  console.log('Registered client "cappuccino" → http://localhost:4002');
+}
 await close();
 
 console.log(`Registered client "${id}" → ${redirectUri}`);

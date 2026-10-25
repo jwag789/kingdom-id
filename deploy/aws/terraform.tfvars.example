@@ -1,0 +1,6 @@
+region               = "us-east-1"
+zone_name            = "kingdomwebbuilders.com"
+issuer_domain        = "id.kingdomwebbuilders.com"
+relay_domain         = "relay.kingdomwebbuilders.com"
+image                = "ghcr.io/jwag789/kingdom-id:v1.0.0"
+dmarc_report_address = "dmarc@kingdomwebbuilders.com"

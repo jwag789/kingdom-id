@@ -1,0 +1,9 @@
+# Automatic HTTPS for the issuer host; both app containers behind it.
+{$ISSUER_HOST} {
+	encode gzip
+	reverse_proxy app-1:4000 app-2:4000 {
+		lb_policy round_robin
+		health_uri /readyz
+		health_interval 5s
+	}
+}

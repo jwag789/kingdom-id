@@ -96,7 +96,7 @@ test("an admin signed in with a passkey manages perks", async ({ page, context }
   await expect(page.getByRole("status")).toContainText("Created Front row");
 
   await page.getByLabel("Grant Front row to").fill(email);
-  await page.getByRole("button", { name: "Grant" }).last().click();
+  await page.getByRole("button", { name: "Grant Front row", exact: true }).click();
   await expect(page.getByRole("status")).toContainText(`Granted to ${email}`);
 
   await page.goto("http://localhost:4000/account/treasury");

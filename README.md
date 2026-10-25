@@ -4,10 +4,10 @@
 
 Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'd add any OIDC provider. Users get one account across all of them, with privacy built in:
 
-- **Private by default with third parties, unified across Kingdom apps.** Third-party apps each see their own pairwise `sub`, so they can't link a user by ID. Kingdom's own apps share one, so perks and the dashboard follow the person. *(Built.)*
-- **Passkey-first sign-in**, with a password as the fallback. *(Built.)*
-- **A private relay email per app**, so the real address never leaves Kingdom. Replies go back out through the relay too. *(Built; see [docs/email-relay.md](docs/email-relay.md).)*
-- **"Your Kingdom", one dashboard** for every connected app, what each one received, perks that carry across apps, and a security timeline. One click disconnects an app. *(Built.)*
+- **Private by default with third parties, unified across Kingdom apps.** Third-party apps each see their own pairwise `sub`, so they can't link a user by ID. Kingdom's own apps share one, so perks and the dashboard follow the person.
+- **Passkey-first sign-in**, with a password as the fallback.
+- **A private relay email per app**, so the real address never leaves Kingdom. Replies go back out through the relay too.
+- **"Your Kingdom", one dashboard** for every connected app, what each one received, perks that carry across apps, and a security timeline. One click disconnects an app.
 
 <p align="center">
   <img src="docs/images/sign-in-dark.png" alt="Kingdom ID sign-in: the Kingdom brand story on the left; on the right a card co-branded with the requesting app, with 'Continue with a passkey' as the primary action" width="820">
@@ -20,19 +20,25 @@ Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'
 
 > 🎬 _Demo GIF placeholder: sign-in from the demo app, consent, and return._
 
-## Status
+## At a glance
 
-| Phase | Scope | State |
-|---|---|---|
-| 1 | Core provider: discovery, JWKS with rotation, code flow with PKCE, ID tokens, userinfo, consent, signup and login, demo client | ✅ Done |
-| 2 | Refresh tokens with rotation and reuse detection, revocation, introspection, logout | ✅ Done |
-| 3 | OpenID Foundation conformance suite in CI | ✅ Done |
-| 4 | Passkeys and the designed sign-in experience | ✅ Done |
-| 5 | "Your Kingdom" dashboard | ✅ Done |
-| 6 | Email relay via AWS SES | ✅ Done |
-| 7 | Security event pipeline (Redis Streams) | ✅ Done |
-| 8 | `kingdom` CLI, horizontal scaling proof, k6 benchmarks | ✅ Done |
-| 9 | Deployment and the Next.js integration guide | Planned |
+| | |
+|---|---|
+| **Standards** | OAuth 2.0 and OpenID Connect written from the RFCs; no OIDC library. [23 specifications](#standards-implemented): 17 RFCs, 5 OpenID specifications and W3C WebAuthn Level 3. |
+| **Conformance** | OpenID Foundation Basic OP plan in CI: [25 passed, 0 failed](#conformance). |
+| **Security** | Mandatory PKCE, refresh rotation with reuse detection, passkeys, a Redis Streams detection pipeline, and a [threat model](#threat-model). |
+| **Scale** | Stateless: [2.06× throughput](#benchmarks) from a second instance, proven [across instances with no sticky sessions](#scaling-out). |
+| **Tests** | 180 unit and integration tests on real Postgres and Redis, 16 browser end-to-end tests with WCAG 2.1 AA checks, and interop with the certified `openid-client`. |
+
+## Documentation
+
+| Guide | For |
+|---|---|
+| [Add "Sign in with Kingdom" to a Next.js app](docs/integrations/nextjs.md) | App developers, with Cappuccino as the worked example ([code](examples/cappuccino)) |
+| [Deploying Kingdom ID](docs/deploy.md) | Operators: AWS with Terraform, or a single host, plus releases and day-two tasks |
+| [Email relay](docs/email-relay.md) | Setting up SES, with every DNS record and why it's there |
+| [Conformance](conformance/README.md) | Running the OpenID Foundation suite, and why each non-pass is accepted |
+| [The `kingdom` CLI](#the-kingdom-cli) | Operators |
 
 ## Your Kingdom
 
@@ -306,6 +312,10 @@ against the access token (OIDC Core §5.4). ID tokens get passed around as proof
 
 **Perks are evaluated, not stored.** Except for hand-granted perks, nothing records that a perk was unlocked: the rules are evaluated against the user's connections each time. Pausing a perk, or a user disconnecting an app, takes effect immediately, and there's no unlock state to drift out of sync.
 
+**AWS for production, not a serverless platform.** Each instance runs a key-rotation scheduler and a security-event consumer alongside HTTP, so it needs long-lived processes, and the email relay already depends on SES. ECS Fargate gives long-lived containers without managing servers, and the Terraform keeps the whole estate (network, data stores, secrets, relay DNS) reviewable in one place. A single-host Compose layout covers staging and small installs with the same image.
+
+**The integration guide is executable.** The Next.js guide's code is the Cappuccino example app, which the browser e2e suite builds and drives on every push: sign-in through Auth.js, the private email, perks carried over from another app, and both sign-out modes. A guide that drifts from the provider fails CI.
+
 **Redis Streams for security events, not a queue service.** Redis is already a dependency, and streams give the three properties needed: ordered append, consumer groups that share work across instances, and a pending-entries list for crash recovery. Detection rules query the persisted events in Postgres rather than keeping their own counters, so there's one source of truth and rules can be changed without migrating state.
 
 **"Location" without a GeoIP database.** A sign-in counts as somewhere new when it comes from a network block the account hasn't used, plus a country when a trusted CDN supplies one (CloudFront and Cloudflare both do). Network blocks are a steadier signal than single IPs and need no licensed data. Adding a GeoIP lookup later would only enrich the event at the source.
@@ -349,7 +359,10 @@ packages/brand     Kingdom Web Builders design tokens and logos
 e2e                Playwright browser tests
 conformance        OpenID Foundation conformance suite, self-hosted
 scaling            Two instances behind a load balancer, statelessness proof, k6 benchmark
-docs               Email relay setup, screenshots
+examples/cappuccino  The Next.js integration example (Auth.js)
+deploy/aws         Terraform: ECS Fargate, RDS, ElastiCache, ALB, SES relay
+deploy/single-host Docker Compose with Caddy for one machine
+docs               Integration, deployment and relay guides; screenshots
 ```
 
 ---

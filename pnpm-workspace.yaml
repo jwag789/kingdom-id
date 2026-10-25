@@ -3,6 +3,7 @@ packages:
   - packages/*
   - e2e
   - scaling
+  - examples/*
 
 onlyBuiltDependencies:
   - '@node-rs/argon2'
