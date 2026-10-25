@@ -132,13 +132,13 @@ Every CI run builds Kingdom ID from the production `Dockerfile`, puts it behind 
 (`release-v5.3.3`, discovery + static clients) against it. The suite's scripted browser signs in through the real login
 and consent pages. Details and the full reasoning for every non-pass are in [`conformance/README.md`](conformance/README.md).
 
-**Latest result** ([CI run 40160889457](https://github.com/jwag789/kingdom-id/actions/runs/40160889457)): 35 test modules, 1,757 conditions checked, **0 failures**.
+**Latest result** ([CI run 40189242195](https://github.com/jwag789/kingdom-id/actions/runs/40189242195)): 35 test modules, 1,758 conditions checked, **0 failures**.
 
 | Result | Modules |
 |---|---|
-| ✅ Passed (24) | `oidcc-server`, `oidcc-server-client-secret-post`, `oidcc-response-type-missing`, `oidcc-userinfo-get`, `oidcc-userinfo-post-header`, `oidcc-userinfo-post-body`, `oidcc-ensure-request-without-nonce-succeeds-for-code-flow`, `oidcc-scope-email`, `oidcc-alternate-happy-flow`, `oidcc-display-page`, `oidcc-display-popup`, `oidcc-prompt-none-not-logged-in`, `oidcc-prompt-none-logged-in`, `oidcc-max-age-10000`, `oidcc-ensure-request-with-unknown-parameter-succeeds`, `oidcc-id-token-hint`, `oidcc-login-hint`, `oidcc-ui-locales`, `oidcc-claims-locales`, `oidcc-codereuse`, `oidcc-codereuse-30seconds`, `oidcc-ensure-post-request-succeeds`, `oidcc-refresh-token`, `oidcc-ensure-request-with-valid-pkce-succeeds` |
+| ✅ Passed (25) | `oidcc-server`, `oidcc-server-client-secret-post`, `oidcc-response-type-missing`, `oidcc-userinfo-get`, `oidcc-userinfo-post-header`, `oidcc-userinfo-post-body`, `oidcc-ensure-request-without-nonce-succeeds-for-code-flow`, `oidcc-scope-email`, `oidcc-alternate-happy-flow`, `oidcc-display-page`, `oidcc-display-popup`, `oidcc-prompt-none-not-logged-in`, `oidcc-prompt-none-logged-in`, `oidcc-max-age-10000`, `oidcc-ensure-request-with-unknown-parameter-succeeds`, `oidcc-id-token-hint`, `oidcc-login-hint`, `oidcc-ui-locales`, `oidcc-claims-locales`, `oidcc-ensure-request-with-acr-values-succeeds`, `oidcc-codereuse`, `oidcc-codereuse-30seconds`, `oidcc-ensure-post-request-succeeds`, `oidcc-refresh-token`, `oidcc-ensure-request-with-valid-pkce-succeeds` |
 | 👀 Review (4) | `oidcc-prompt-login`, `oidcc-max-age-1`, `oidcc-ensure-registered-redirect-uri`, `oidcc-ensure-request-object-with-redirect-uri`: these finish with a screenshot for a human to check (a fresh sign-in page or an error page instead of a redirect). The screenshots are in the CI artifacts. |
-| ⚠️ Warning (3) | `oidcc-scope-profile` (only `name` and `updated_at` exist), `oidcc-ensure-request-with-acr-values-succeeds` (no `acr` claim yet), `oidcc-claims-essential` (the `claims` parameter isn't supported, as discovery declares) |
+| ⚠️ Warning (2) | `oidcc-scope-profile` (only `name` and `updated_at` exist), `oidcc-claims-essential` (the `claims` parameter isn't supported, as discovery declares) |
 | ⏭️ Skipped (4) | `oidcc-scope-address`, `oidcc-scope-phone`, `oidcc-scope-all` (scopes not offered), `oidcc-unsigned-request-object-…` (request objects not supported) |
 
 One deliberate deviation makes the run possible: the Basic OP modules don't send PKCE, so the suite's static clients are
