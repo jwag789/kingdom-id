@@ -230,7 +230,31 @@ This is not an official OpenID certification, which requires submitting results 
 
 ## Benchmarks
 
-BENCHMARK_PLACEHOLDER
+A [k6](https://k6.io) load test of the **token endpoint**, in [`scaling/k6/token-refresh.js`](scaling/k6/token-refresh.js). Each request is a full refresh-token rotation:
+- client authentication;
+- a refresh token redeemed with a conditional update and its replacement inserted;
+- an RS256 access token and ID token signed;
+- last-used recorded;
+- two Redis rate-limit checks.
+
+Every virtual user rotates its own token chain, so each token is used exactly once, as a real client would use it.
+
+**Reference run** ([CI run 40209257819](https://github.com/jwag789/kingdom-id/actions/runs/40209257819)), 20 VUs for 60 s per configuration, through the Caddy load balancer:
+
+| Configuration | Requests | Throughput | p50 | p95 | p99 | Errors |
+|---|---|---|---|---|---|---|
+| One instance | 9,733 | 162 req/s | 118 ms | 168 ms | 207 ms | 0% |
+| Two instances, round-robin | 9,748 | 162 req/s | 116 ms | 231 ms | 285 ms | 0% |
+
+**How to read this.** The runner is a 2-vCPU GitHub machine (AMD EPYC 7763) running everything: both Kingdom ID instances, Postgres, Redis, Caddy and k6 itself. With no idle cores, a second instance can't add capacity, so throughput is identical. What the second row does show is correctness under load: 9,748 rotations spread across two instances with no shared memory, and not one reuse false-positive, lost token or error. CI fails the build on any error or a p95 above 500 ms, so the token path can't quietly regress.
+
+To measure what a second instance adds, run the same benchmark on a machine with spare cores. Each instance is pinned to `IDP_CPUS` cores (default 1), so the two-instance row gets genuinely more CPU:
+
+```bash
+VUS=50 DURATION=60s scaling/run-bench.sh
+```
+
+Run it on a desktop or a plugged-in laptop: a sleeping laptop pauses Docker mid-run, and the results show it as multi-minute latencies.
 
 ## Threat model
 
