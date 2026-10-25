@@ -116,12 +116,13 @@ jobs:
       # Builds two Kingdom ID instances behind a round-robin load balancer and
       # proves a session survives bouncing between them and losing one.
       - run: scaling/run-proof.sh
-      # The published benchmark: one instance, then two, on a GitHub runner
-      # (a consistent machine that never sleeps). Thresholds fail the job on
-      # errors or a slow p95.
+      # Reference benchmark on a GitHub runner: a consistent machine that
+      # never sleeps, but only 2 vCPUs for all seven containers, so 20 VUs
+      # keeps it below saturation. Thresholds fail the job on any error or a
+      # p95 over 500 ms, which makes this a regression guard for the token path.
       - run: scaling/run-bench.sh
         env:
-          VUS: "50"
+          VUS: "20"
           DURATION: "60s"
       - name: Benchmark summary
         if: always()
