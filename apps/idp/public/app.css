@@ -1613,6 +1613,239 @@ select option {
 }
 
 /* ------------------------------------------------------------------ */
+/* Button builder (/brand)                                             */
+/* ------------------------------------------------------------------ */
+
+.brand-main h1 {
+  font-family: var(--font-serif);
+}
+
+.builder {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .builder {
+    grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+  }
+}
+
+.builder-result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  min-width: 0;
+}
+
+/* The grid spaces its own panels. */
+.builder-result > .panel + .panel {
+  margin-top: 0;
+}
+
+.brand-main > .panel {
+  margin-top: 16px;
+}
+
+.builder-group {
+  margin: 0 0 18px;
+  padding: 0;
+  border: 0;
+}
+
+.builder-group legend {
+  margin-bottom: 6px;
+  padding: 0;
+  font-weight: 650;
+}
+
+.builder-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.builder-choice:hover {
+  background: var(--surface-raised);
+}
+
+.builder-choice input {
+  flex: none;
+  width: 18px;
+  min-height: 0;
+  height: 18px;
+  margin: 1px 0 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
+.builder-choice input:focus {
+  box-shadow: none;
+}
+
+.builder-choice input:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.builder-choice strong {
+  display: block;
+  font-weight: 600;
+}
+
+.builder-choice small {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.preview-surfaces {
+  display: grid;
+  gap: 12px;
+}
+
+@media (min-width: 600px) {
+  .preview-surfaces {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.preview-surface {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 9.5rem;
+  padding: 28px 20px 36px;
+  position: relative;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+}
+
+.preview-caption {
+  position: absolute;
+  left: 14px;
+  bottom: 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.preview-light {
+  background: #ffffff;
+  color: #3a4463;
+}
+
+.preview-dark {
+  background: #0a0f24;
+  color: #b6bdcd;
+}
+
+.brand-gallery .preview-surface {
+  padding-bottom: 28px;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  margin: 0 0 14px;
+  padding-left: 1.25rem;
+}
+
+.steps p {
+  margin: 0 0 8px;
+}
+
+.code-block {
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--input-bg);
+}
+
+.code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 4px 6px 4px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.code-head .btn-small {
+  min-height: 34px;
+}
+
+.code-block pre {
+  margin: 0;
+  padding: 14px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.brand-main code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.rules {
+  display: grid;
+  gap: 8px 24px;
+}
+
+@media (min-width: 720px) {
+  .rules {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.rules-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rules-list li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.rules-list .icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+}
+
+.rules-do .icon {
+  color: var(--accent-text);
+}
+
+.rules-dont .icon {
+  color: var(--error-text);
+}
+
+/* ------------------------------------------------------------------ */
 /* Motion preferences                                                  */
 /* ------------------------------------------------------------------ */
 

@@ -28,12 +28,13 @@ Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'
 | **Conformance** | OpenID Foundation Basic OP plan in CI: [25 passed, 0 failed](#conformance). |
 | **Security** | Mandatory PKCE, refresh rotation with reuse detection, passkeys, a Redis Streams detection pipeline, and a [threat model](#threat-model). |
 | **Scale** | Stateless: [2.06× throughput](#benchmarks) from a second instance, proven [across instances with no sticky sessions](#scaling-out). |
-| **Tests** | 188 unit and integration tests on real Postgres and Redis, 18 browser end-to-end tests with WCAG 2.1 AA checks, and interop with the certified `openid-client`. |
+| **Tests** | 196 unit and integration tests on real Postgres and Redis, 23 browser end-to-end tests with WCAG 2.1 AA checks, and interop with the certified `openid-client`. |
 
 ## Documentation
 
 | Guide | For |
 |---|---|
+| The button builder, at `/brand` on any Kingdom ID | App developers: the official Sign in with Kingdom button in four looks, three sizes and three labels, with usage rules and copy-ready code |
 | [Add "Sign in with Kingdom" to a Next.js app](docs/integrations/nextjs.md) | App developers, with Cappuccino as the worked example ([code](examples/cappuccino)) |
 | [Deploying Kingdom ID](docs/deploy.md) | Operators: AWS with Terraform, or a single host, plus releases and day-two tasks |
 | [Email relay](docs/email-relay.md) | Setting up SES, with every DNS record and why it's there |

@@ -41,7 +41,13 @@ export function registerSecurityHeaders(app: FastifyInstance, opts: { hsts: bool
     // Authorization responses put the code in the URL; never leak it via Referer.
     reply.header("referrer-policy", "no-referrer");
     reply.header("cross-origin-opener-policy", "same-origin");
-    reply.header("cross-origin-resource-policy", "same-origin");
+    if (req.url.startsWith("/brand/")) {
+      // The button stylesheet and marks are made for other sites to load.
+      reply.header("cross-origin-resource-policy", "cross-origin");
+      reply.header("access-control-allow-origin", "*");
+    } else {
+      reply.header("cross-origin-resource-policy", "same-origin");
+    }
     reply.header("permissions-policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()");
     if (opts.hsts) reply.header("strict-transport-security", "max-age=63072000; includeSubDomains");
   });

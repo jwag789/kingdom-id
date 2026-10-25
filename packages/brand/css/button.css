@@ -1,0 +1,159 @@
+/*
+ * The official "Sign in with Kingdom" button.
+ *
+ *   <button class="kingdom-button">Sign in with Kingdom</button>
+ *
+ * Works on <button> and <a>, needs no JavaScript and no images: the Kingdom
+ * mark is drawn by the ::before mask below, in the button's own mark color.
+ * Pick a look with modifiers: --blue, --light or --outline; --sm or --lg;
+ * --square; --block; --icon (mark only: give it an aria-label).
+ *
+ * Builder and usage rules: <your Kingdom ID issuer>/brand
+ * Every value is scoped to .kingdom-button, so it can't restyle your page.
+ */
+.kingdom-button {
+  --kingdom-button-bg: #0a0f24;
+  --kingdom-button-bg-hover: #1c2340;
+  --kingdom-button-fg: #ffffff;
+  --kingdom-button-mark: #ffffff;
+  /* Invisible on light backgrounds; keeps the edge on dark ones. */
+  --kingdom-button-border: rgb(255 255 255 / 0.18);
+  --kingdom-button-focus: #0054ee;
+  --kingdom-button-height: 44px;
+  --kingdom-button-font-size: 15px;
+
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6em;
+  min-width: max-content;
+  min-height: var(--kingdom-button-height);
+  margin: 0;
+  padding: 0 calc(var(--kingdom-button-height) * 0.45);
+  border: 1px solid var(--kingdom-button-border);
+  border-radius: 999px;
+  background: var(--kingdom-button-bg);
+  color: var(--kingdom-button-fg);
+  font-family: "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: var(--kingdom-button-font-size);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.005em;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.kingdom-button::before {
+  content: "";
+  flex: none;
+  width: calc(var(--kingdom-button-font-size) * 1.9);
+  aspect-ratio: 480 / 260;
+  background: var(--kingdom-button-mark);
+  -webkit-mask: var(--kingdom-mark) center / contain no-repeat;
+  mask: var(--kingdom-mark) center / contain no-repeat;
+}
+
+.kingdom-button:hover {
+  background: var(--kingdom-button-bg-hover);
+  color: var(--kingdom-button-fg);
+}
+
+.kingdom-button:focus-visible {
+  outline: 3px solid var(--kingdom-button-focus);
+  outline-offset: 3px;
+}
+
+.kingdom-button:disabled,
+.kingdom-button[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Looks */
+
+.kingdom-button--blue {
+  --kingdom-button-bg: #0054ee;
+  --kingdom-button-border: transparent;
+  --kingdom-button-bg-hover: #0046c7;
+  --kingdom-button-focus: #0a0f24;
+}
+
+.kingdom-button--light {
+  --kingdom-button-bg: #ffffff;
+  --kingdom-button-bg-hover: #f6f8fc;
+  --kingdom-button-fg: #0a0f24;
+  --kingdom-button-mark: #0054ee;
+  --kingdom-button-border: #dde2ec;
+}
+
+/* Takes its color from the surrounding text, for any background. */
+.kingdom-button--outline {
+  --kingdom-button-bg: transparent;
+  --kingdom-button-bg-hover: color-mix(in srgb, currentColor 8%, transparent);
+  --kingdom-button-fg: currentColor;
+  --kingdom-button-mark: currentColor;
+  --kingdom-button-border: color-mix(in srgb, currentColor 40%, transparent);
+  --kingdom-button-focus: currentColor;
+}
+
+/* Sizes. Small is for dense toolbars; keep 44px wherever a thumb taps. */
+
+.kingdom-button--sm {
+  --kingdom-button-height: 36px;
+  --kingdom-button-font-size: 13px;
+}
+
+.kingdom-button--lg {
+  --kingdom-button-height: 52px;
+  --kingdom-button-font-size: 17px;
+}
+
+/* Shapes */
+
+.kingdom-button--square {
+  border-radius: calc(var(--kingdom-button-height) * 0.25);
+}
+
+.kingdom-button--block {
+  display: flex;
+  width: 100%;
+}
+
+.kingdom-button--icon {
+  width: var(--kingdom-button-height);
+  min-width: 0;
+  padding: 0;
+}
+
+.kingdom-button--icon::before {
+  width: calc(var(--kingdom-button-height) * 0.6);
+}
+
+/* Windows High Contrast and other forced-color modes: keep the mark and the edge visible. */
+@media (forced-colors: active) {
+  .kingdom-button {
+    border-color: ButtonText;
+  }
+  .kingdom-button::before {
+    forced-color-adjust: none;
+    background: ButtonText;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kingdom-button {
+    transition: none;
+  }
+}
+
+/* The Kingdom mark (packages/brand/assets/kingdom-mark.svg), inlined so the button needs no image request. */
+.kingdom-button {
+  --kingdom-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 480 260'%3E%3Cpath fill-rule='evenodd' d='M233.7 21C233 36.4,231.8 44.2,229.8 46.5C229.4 47,229 49.9,229 53C229 56.1,228.6 59,228.2 59.5C225 63.1,223.7 70.2,222.8 87.5C222.4 97.4,221.6 109.5,221.1 114.5C220.6 119.5,220.1 136.1,220.1 151.6C220 178.4,219.9 179.8,218 181.5C216 183.3,216 183.2,216 170.2L216 157 213.5 157L211 157 210.9 132.8C210.9 119.4,210.6 106.8,210.2 104.8L209.5 101.1 199.8 107.3L190.1 113.5 190.1 128.8L190 144 187 144L184 144 184 168L184 192 181.6 192C178.6 192,178.3 187.6,177.4 134.2C177.1 114.3,176.5 98,176.2 98C175.8 98.1,170 102,163.2 106.8L150.9 115.5 150.7 160L150.5 204.5 147.2 204.8L144 205.1 144 186.1L144 167 134.5 167L125 167 125 175.9C125 187.1,124.7 188,120.4 188L117 188 117 193C117 197.7,116.8 198,114.5 198L112 198 112 184.1L112 170.2 107.4 165.1L102.7 159.9 102.2 148.2C101.6 135.7,100.3 136.6,100.1 149.8C100 157.9,99.4 159.5,93.9 166.1L90 170.8 90 200.7L90 230.7 78.8 233C64.4 235.9,40.3 242.7,27.4 247.5C15.6 252,3.8 257.1,4.3 257.7C4.6 257.9,9.1 256.9,14.3 255.6C47.2 247,96 239.8,151.5 235.4C178 233.2,278.1 232.3,307 233.9C368 237.4,434.3 246.6,468.9 256.6C473.6 257.9,477.5 258.8,477.7 258.6C478.4 257.9,456.4 248.8,443.1 244.4C430.5 240.1,394.7 231,390.8 231C389.2 231,389 229.6,389 216.1L389 201.2 386 200.7L383 200.1 383 183.5L383 167 373.5 167L364 167 364 171.4C364 175.2,363.7 175.9,361.5 176.4L359 177 359 196.5L359 216 355.5 216L352 216 352 179.6L352 143.1 348.8 142.8C345.5 142.5,345.5 142.4,345 136.5C344.3 128.2,337.1 108.4,337 114.5C337 115.6,335.8 119.2,334.3 122.5C332.7 126.1,331.5 131.3,331.1 135.5L330.5 142.5 326.8 142.8L323 143.1 323 174.1L323 205 318.5 205L314.1 205 313.8 151C313.5 106.2,313.3 96.8,312.1 96.1C311 95.4,310.9 93.9,311.9 87.6C313.5 76.7,313.6 77,309.2 77C303.1 77,302.9 76.7,301.7 60.4C300.4 44.6,299.4 46.4,299.1 64.7C298.9 75.6,298.1 77,292 77C286.6 77,286.5 77.1,288 80C288.6 81.2,288.7 82.1,288 82.5C287.4 82.9,287.4 84,288 85.6C289.5 89.6,289.2 96,287.5 96.6C286.3 97.1,286 99.2,286 107C286 116,285.8 117,283.8 118.4L281.7 119.9 282.3 153L282.9 186 278.9 186L275 186 275 172.8L274.9 159.5 270.2 150.5L265.5 141.5 261 141.5C256.6 141.5,256.4 141.6,253.7 146.8C252.1 149.6,250.5 152,250 152C249.5 152,248.9 142.4,248.6 130.8C247.5 82.4,246.3 69.5,241.9 60.8C240.8 58.7,240 55,240 52.5C240 50,239.3 46.3,238.4 44.2C237.3 41.7,236.4 34.5,235.6 22.5L234.4 4.5 233.7 21'/%3E%3C/svg%3E");
+}

@@ -10,6 +10,7 @@
       "default": "./dist/index.js"
     },
     "./tokens.css": "./css/tokens.css",
+    "./button.css": "./css/button.css",
     "./assets/*": "./assets/*"
   },
   "scripts": {

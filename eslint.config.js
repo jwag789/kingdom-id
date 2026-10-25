@@ -15,7 +15,7 @@ export default tseslint.config(
   {
     // Browser script served as-is to the sign-in pages.
     files: ["apps/idp/public/**/*.js"],
-    languageOptions: { globals: { window: "readonly", document: "readonly", navigator: "readonly", fetch: "readonly", atob: "readonly", btoa: "readonly", PublicKeyCredential: "readonly", AbortController: "readonly" } },
+    languageOptions: { globals: { window: "readonly", document: "readonly", navigator: "readonly", fetch: "readonly", atob: "readonly", btoa: "readonly", PublicKeyCredential: "readonly", AbortController: "readonly", setTimeout: "readonly", URLSearchParams: "readonly", FormData: "readonly", DOMParser: "readonly", history: "readonly" } },
   },
   {
     // k6 scripts run in k6's JavaScript runtime, which provides these globals.

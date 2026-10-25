@@ -4,7 +4,7 @@ This guide adds Kingdom ID sign-in to a Next.js App Router app with [Auth.js](ht
 
 Your app ends up with:
 
-- a **Sign in with Kingdom** button (passkey-first sign-in, handled by Kingdom ID);
+- the official **Sign in with Kingdom** button (passkey-first sign-in, handled by Kingdom ID);
 - the member's name, plus a **private email address** unique to your app;
 - their **Kingdom perks**, if your app is a first-party Kingdom app;
 - **Sign out**, either of your app only or of Kingdom too;
@@ -137,6 +137,22 @@ export const { GET, POST } = handlers;
 
 ## 4. The button
 
+<p align="center">
+  <img src="../images/sign-in-button.png" alt="The Sign in with Kingdom button in its dark, blue, light and outline looks, on light and dark backgrounds" width="640">
+</p>
+
+Use the official **Sign in with Kingdom** button, so members recognize it in every app. Kingdom ID serves it as one small stylesheet, with no script and no images. Pick a look, size and label at **`<issuer>/brand`**, the button builder, which also lists the usage rules.
+
+Link the stylesheet once, in [`app/layout.tsx`](../../examples/cappuccino/app/layout.tsx):
+
+```tsx
+<head>
+  <link rel="stylesheet" href={`${KINGDOM_ISSUER}/brand/button.css`} />
+</head>
+```
+
+To serve it yourself instead, download `button.css` from the builder and import it like any other stylesheet.
+
 [`components/sign-in-with-kingdom.tsx`](../../examples/cappuccino/components/sign-in-with-kingdom.tsx) is a server-action form, so it works without client JavaScript:
 
 ```tsx
@@ -146,7 +162,6 @@ export function SignInWithKingdom() {
   return (
     <form action={signInWithKingdom}>
       <button type="submit" className="kingdom-button">
-        <img src="/kingdom-mark-white.png" alt="" width={28} height={15} />
         Sign in with Kingdom
       </button>
     </form>
@@ -154,24 +169,7 @@ export function SignInWithKingdom() {
 }
 ```
 
-```css
-.kingdom-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px; /* comfortable touch target */
-  padding: 0 20px;
-  border: 0;
-  border-radius: 999px;
-  color: #fff;
-  font-weight: 600;
-  background: #0a0f24; /* Kingdom ink */
-}
-.kingdom-button:hover { background: #0054ee; }
-.kingdom-button:focus-visible { outline: 3px solid #0054ee; outline-offset: 3px; }
-```
-
-Copy `kingdom-mark-white.png` from [`packages/brand/assets`](../../packages/brand/assets) into your `public/` folder.
+The `kingdom-button` class draws the button and the Kingdom mark; modifiers such as `kingdom-button--light` or `kingdom-button--lg` change the look. Your own `button` styles don't leak into it. If your app sends a Content Security Policy, allow `data:` in `img-src` (the mark is inlined) and the issuer in `style-src`.
 
 ## 5. Sign in, sign out
 

@@ -36,6 +36,7 @@ import { TokenService } from "./oauth/tokens.js";
 import { registerAccountRoutes } from "./routes/account.js";
 import { registerAdminRoutes } from "./routes/admin.js";
 import { registerAuthorizeRoutes } from "./routes/authorize.js";
+import { registerBrandRoutes } from "./routes/brand.js";
 import { registerDashboardRoutes } from "./routes/dashboard.js";
 import { registerDiscoveryRoutes } from "./routes/discovery.js";
 import { registerHealthRoutes } from "./routes/health.js";
@@ -234,6 +235,7 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
   registerAccountRoutes(app, ctx);
   registerDashboardRoutes(app, ctx);
   registerAdminRoutes(app, ctx);
+  registerBrandRoutes(app, ctx);
   registerRelayInboundRoutes(app, ctx, {
     fetchCert: deps.relayInbound?.fetchCert ?? httpsCertFetcher(),
     fetchRaw: deps.relayInbound?.fetchRaw ?? (config.AWS_REGION ? s3MessageFetcher(config.AWS_REGION) : undefined),

@@ -32,25 +32,3 @@ button {
   background: #fff;
   cursor: pointer;
 }
-
-/* Sign in with Kingdom: KWB ink with the white Kingdom mark. */
-.kingdom-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  padding: 0 20px;
-  border: 0;
-  color: #fff;
-  font-weight: 600;
-  background: #0a0f24;
-}
-
-.kingdom-button:hover {
-  background: #0054ee;
-}
-
-.kingdom-button:focus-visible {
-  outline: 3px solid #0054ee;
-  outline-offset: 3px;
-}

@@ -51,3 +51,4 @@ export const byline = "by Kingdom Web Builders";
 
 export const assetsDir = fileURLToPath(new URL("../assets", import.meta.url));
 export const tokensCssPath = fileURLToPath(new URL("../css/tokens.css", import.meta.url));
+export const buttonCssPath = fileURLToPath(new URL("../css/button.css", import.meta.url));

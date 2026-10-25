@@ -21,7 +21,7 @@ export const uiFor = (ctx: Context, req: FastifyRequest): Ui => ({
   relay: ctx.config.EMAIL_RELAY_ENABLED,
 });
 
-export function Document({ title, ui, children }: { title: string; ui: Ui; children: ComponentChildren }) {
+export function Document({ title, ui, stylesheets = [], children }: { title: string; ui: Ui; stylesheets?: string[]; children: ComponentChildren }) {
   return (
     <html lang="en">
       <head>
@@ -34,6 +34,9 @@ export function Document({ title, ui, children }: { title: string; ui: Ui; child
         <link rel="preload" href="/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
         <link rel="stylesheet" href="/brand/tokens.css" />
         <link rel="stylesheet" href="/assets/app.css" />
+        {stylesheets.map((href) => (
+          <link key={href} rel="stylesheet" href={href} />
+        ))}
         <script type="module" src="/assets/passkey.js" nonce={ui.nonce} />
       </head>
       <body>{children}</body>

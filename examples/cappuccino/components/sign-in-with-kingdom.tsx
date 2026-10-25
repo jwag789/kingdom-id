@@ -1,14 +1,14 @@
 import { signInWithKingdom } from "@/app/actions";
 
 /**
- * The "Sign in with Kingdom" button: Kingdom navy, the Kingdom mark, and a
- * 44px minimum touch target. Copy it as-is, or restyle and keep the mark.
+ * The official "Sign in with Kingdom" button: the kingdom-button class from
+ * Kingdom ID's button.css (linked in app/layout.tsx) draws the look and the
+ * mark. Other looks and sizes: <issuer>/brand.
  */
 export function SignInWithKingdom() {
   return (
     <form action={signInWithKingdom}>
       <button type="submit" className="kingdom-button">
-        <img src="/kingdom-mark-white.png" alt="" width={28} height={15} />
         Sign in with Kingdom
       </button>
     </form>
