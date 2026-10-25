@@ -14,9 +14,10 @@ for run in "one-instance https://lb:9444" "two-instances https://lb:9443"; do
   set -- $run
   echo "== $1: $VUS VUs for $DURATION"
   NODE_TLS_REJECT_UNAUTHORIZED=0 npx tsx prepare-load.ts "$VUS" results/load-tokens.json
-  docker compose --profile bench run --rm -e TARGET="$2" -e LABEL="$1" -e VUS="$VUS" -e DURATION="$DURATION" k6 run --quiet /scripts/token-refresh.js
+  # Run k6 as the invoking user so it can write results into the mounted directory.
+  docker compose --profile bench run --rm --user "$(id -u):$(id -g)" -e TARGET="$2" -e LABEL="$1" -e VUS="$VUS" -e DURATION="$DURATION" k6 run --quiet /scripts/token-refresh.js
 done
 
 echo "== environment"
 echo "host: $(uname -sm), $(sysctl -n machdep.cpu.brand_string 2>/dev/null || grep -m1 'model name' /proc/cpuinfo | cut -d: -f2)"
-echo "docker: $(docker info --format '{{.NCPU}} CPUs, {{.MemTotal}} bytes')"
+echo "docker: $(docker info --format '{{.NCPU}} CPUs, {{.MemTotal}} bytes'); ${IDP_CPUS:-1} CPU per Kingdom ID instance"

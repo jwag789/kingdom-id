@@ -7,6 +7,9 @@ x-idp: &idp
   # One image, two containers.
   image: kingdom-id:scaling
   build: ..
+  # A fixed CPU budget per instance, so "one instance vs two" measures what
+  # an instance adds rather than how the host schedules spare cores.
+  cpus: ${IDP_CPUS:-1}
   environment: &idp-env
     NODE_ENV: production
     ISSUER: https://localhost:9443
