@@ -16,6 +16,20 @@ export const ISSUER = "http://localhost:4000";
 const TEST_KEK = Buffer.alloc(32, 7).toString("base64");
 const TEST_SECRET = Buffer.alloc(32, 9).toString("base64");
 
+/** The environment a test app runs with, for code that reads env directly (the CLI). */
+export function testEnv(overrides: Record<string, string> = {}): Record<string, string> {
+  return {
+    NODE_ENV: "test",
+    ISSUER,
+    DATABASE_URL: inject("databaseUrl"),
+    REDIS_URL: inject("redisUrl"),
+    KEY_ENCRYPTION_KEY: TEST_KEK,
+    SERVER_SECRET: TEST_SECRET,
+    LOG_LEVEL: "silent",
+    ...overrides,
+  };
+}
+
 export function testConfig(overrides: Record<string, string> = {}): Config {
   return loadConfig({
     NODE_ENV: "test",
@@ -226,7 +240,7 @@ export async function clientPost(
 }
 
 /** A brand-new migrated database, for tests that need exclusive tables (key rotation). */
-export async function freshDatabaseUrl(): Promise<string> {
+export async function freshDatabaseUrl(opts: { migrate?: boolean } = {}): Promise<string> {
   const base = inject("databaseUrl");
   const name = `t_${randomUUID().replace(/-/g, "")}`;
   const admin = postgres(base, { max: 1, onnotice: () => {} });
@@ -234,6 +248,6 @@ export async function freshDatabaseUrl(): Promise<string> {
   await admin.end();
   const url = new URL(base);
   url.pathname = `/${name}`;
-  await runMigrations(url.toString());
+  if (opts.migrate !== false) await runMigrations(url.toString());
   return url.toString();
 }

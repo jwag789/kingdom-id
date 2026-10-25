@@ -90,3 +90,12 @@ describe("signing key lifecycle", () => {
     await expect(wrongKek.getActiveKey("RS256")).rejects.toThrow();
   });
 });
+
+describe("migrations", () => {
+  it("can run from many instances at once", async () => {
+    const { runMigrations } = await import("@kingdom-id/db");
+    // An empty database, so all four really race to create the same tables.
+    const url = await freshDatabaseUrl({ migrate: false });
+    await expect(Promise.all(Array.from({ length: 4 }, () => runMigrations(url)))).resolves.toBeDefined();
+  });
+});

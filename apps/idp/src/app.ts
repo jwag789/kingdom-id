@@ -148,6 +148,12 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
   app.addContentTypeParser("text/plain", { parseAs: "string" }, (_req, body, done) => done(null, body));
   await app.register(formbody);
   registerSecurityHeaders(app, { hsts: config.NODE_ENV === "production" });
+  if (config.INSTANCE_ID) {
+    const instance = config.INSTANCE_ID;
+    app.addHook("onSend", async (_req, reply) => {
+      reply.header("x-kingdom-instance", instance);
+    });
+  }
 
   await app.register(fastifyStatic, { root: publicDir, prefix: "/assets/", maxAge: "1h" });
   await app.register(fastifyStatic, {

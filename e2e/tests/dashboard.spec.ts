@@ -80,7 +80,7 @@ test("disconnecting a realm ends the app's access", async ({ page, context }) =>
 
 test("an admin signed in with a passkey manages perks", async ({ page, context }) => {
   const email = await memberWithRealm(context, page, "Mary Jackson");
-  execFileSync("pnpm", ["--filter", "@kingdom-id/idp", "make-admin", email], { cwd: "..", env: { ...process.env, ...env }, stdio: "ignore" });
+  execFileSync("pnpm", ["--filter", "@kingdom-id/idp", "kingdom", "users", "admin", email], { cwd: "..", env: { ...process.env, ...env }, stdio: "ignore" });
 
   await page.goto("http://localhost:4000/account");
   await page.getByRole("link", { name: "Admin" }).click();

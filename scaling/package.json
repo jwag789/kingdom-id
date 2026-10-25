@@ -1,0 +1,16 @@
+{
+  "name": "@kingdom-id/scaling",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Two Kingdom ID instances behind a load balancer: a statelessness proof and a k6 benchmark.",
+  "scripts": {
+    "prove": "./run-proof.sh",
+    "bench": "./run-bench.sh",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "openid-client": "^6.8.1",
+    "tsx": "^4.20.6"
+  }
+}

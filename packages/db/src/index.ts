@@ -23,11 +23,18 @@ export function connect(url: string, options: { max?: number } = {}): DatabaseHa
 // from both src/ (development) and dist/ (production).
 export const migrationsFolder = fileURLToPath(new URL("../drizzle", import.meta.url));
 
+// Instances start at the same time and all migrate on boot; an advisory
+// lock makes them take turns, so the second finds nothing left to do.
+const MIGRATION_LOCK_ID = 0x4b49_444d; // "KIDM"
+
 export async function runMigrations(url: string): Promise<void> {
+  // max: 1 keeps the lock and the migration on the same session.
   const sql = postgres(url, { max: 1, onnotice: () => {} });
   try {
+    await sql`select pg_advisory_lock(${MIGRATION_LOCK_ID})`;
     await migrate(drizzle(sql), { migrationsFolder });
   } finally {
+    await sql`select pg_advisory_unlock(${MIGRATION_LOCK_ID})`.catch(() => {});
     await sql.end({ timeout: 5 });
   }
 }

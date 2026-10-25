@@ -1,0 +1,22 @@
+{
+	auto_https disable_redirects
+}
+
+# Both instances, round-robin. Health checks take an instance out of
+# rotation within seconds when it stops.
+https://localhost:9443, https://lb:9443 {
+	tls internal
+	reverse_proxy idp-1:4000 idp-2:4000 {
+		lb_policy round_robin
+		health_uri /readyz
+		health_interval 2s
+		health_timeout 1s
+		fail_duration 10s
+	}
+}
+
+# One instance only, same proxy, for the benchmark baseline.
+https://localhost:9444, https://lb:9444 {
+	tls internal
+	reverse_proxy idp-1:4000
+}

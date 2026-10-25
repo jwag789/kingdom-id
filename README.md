@@ -31,7 +31,7 @@ Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'
 | 5 | "Your Kingdom" dashboard | ✅ Done |
 | 6 | Email relay via AWS SES | ✅ Done |
 | 7 | Security event pipeline (Redis Streams) | ✅ Done |
-| 8 | `kingdom` CLI, horizontal scaling proof, k6 benchmarks | Planned |
+| 8 | `kingdom` CLI, horizontal scaling proof, k6 benchmarks | ✅ Done |
 | 9 | Deployment and the Next.js integration guide | Planned |
 
 ## Your Kingdom
@@ -51,7 +51,7 @@ Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'
 | **Watchtower** | A timeline of sign-ins (and failed attempts against your account), new passkeys, connected and disconnected apps, and alerts when Kingdom ID blocks a copied refresh token or a replayed sign-in. |
 | **Keys** | Passkeys (add, remove, see when each was last used) and whether a password is set. |
 
-**Admin** (`/admin`) manages each app's perks: create, pause, delete, and grant manual perks. It needs an account flagged as admin from the command line (`pnpm --filter @kingdom-id/idp make-admin you@example.com`) *and* a session signed in with a passkey.
+**Admin** (`/admin`) manages each app's perks: create, pause, delete, and grant manual perks. It needs an account flagged as admin from the command line (`pnpm kingdom users admin you@example.com`) *and* a session signed in with a passkey.
 
 ## Security event pipeline
 
@@ -114,7 +114,37 @@ flowchart LR
   Consumer --> PG
 ```
 
-The API keeps nothing in process memory that matters. Anything durable lives in Postgres and anything short-lived in Redis, so any instance can serve any request. Phase 8 demonstrates this with two instances behind a proxy.
+The API keeps nothing in process memory that matters. Anything durable lives in Postgres and anything short-lived in Redis, so any instance can serve any request. [Proven below](#scaling-out) with two instances behind a load balancer.
+
+## The `kingdom` CLI
+
+Operators manage a deployment from the command line. The same binary ships in the production image, so it runs where the server runs (`node dist/cli/bin.js …`); in this repo, `pnpm -s kingdom …`.
+
+```text
+kingdom clients list [--json]
+kingdom clients create --name <name> --redirect-uri <uri>... [--public] [--first-party]
+                       [--post-logout-uri <uri>...] [--auth-method basic|post]
+                       [--id-token-alg RS256|ES256] [--subject pairwise|public] [--json]
+kingdom keys list [--json]
+kingdom keys rotate [--alg RS256|ES256]
+kingdom users create --email <e> --name <n> (--password-stdin | --generate-password) [--verified] [--admin]
+kingdom users admin <email> [--revoke]
+kingdom token decode <jwt>
+kingdom token verify <jwt> [--issuer <url>] [--audience <aud>]
+```
+
+Client secrets are printed once (only a hash is stored). Passwords are read from stdin or generated, never taken as arguments, where shell history and `ps` would see them. `token verify` fetches keys the way a relying party would, from the issuer's discovery document, and exits non-zero on any failure, so it works in scripts. Usage errors exit 2; operational errors exit 1.
+
+## Scaling out
+
+`scaling/` runs **two Kingdom ID instances behind a round-robin load balancer** (Caddy, TLS), sharing one Postgres and one Redis, with **no sticky sessions**. `scaling/run-proof.sh` then checks, against the running stack:
+
+- **One sign-in across both instances.** Authorize, sign-up, consent, token exchange, userinfo and four refresh rotations, with every request free to land on either instance. In the recorded run the browser session moved between instances 10 times ([step-by-step routing](scaling/results/statelessness.md)).
+- **Losing an instance mid-session.** With `idp-1` stopped, the same browser signs the same user in again entirely on `idp-2`, which also rotates a refresh token `idp-1` issued.
+- **Rotating keys from one instance.** `kingdom keys rotate` run on `idp-2`; tokens signed before and after verify on both.
+- **Shared event processing.** Both instances join the security event stream's consumer group.
+
+This found one real multi-instance bug, now fixed and tested: instances booting together raced to run migrations. Migrations now take a Postgres advisory lock.
 
 ## Quick start
 
@@ -125,6 +155,7 @@ cp .env.example .env      # then fill KEY_ENCRYPTION_KEY and SERVER_SECRET with:
 docker compose up -d      # Postgres on :54320, Redis on :63790
 pnpm install
 pnpm seed                 # registers the demo client; copy the printed secret into .env as DEMO_CLIENT_SECRET
+pnpm -s kingdom help      # the operator CLI
 pnpm dev                  # Kingdom ID on :4000, demo client on :4001
 pnpm --filter @kingdom-id/idp relay:simulate <private-address>   # push a test email through the relay, no AWS needed
 ```
@@ -144,6 +175,8 @@ pnpm test:e2e    # Playwright through the demo client: passkeys via a virtual au
 - **Browser e2e tests** sign up and back in with a passkey through Chromium's virtual authenticator, check every page against WCAG 2.1 AA in dark and light mode at desktop and phone widths, check there's no horizontal scroll on phones, confirm `prefers-reduced-motion` stops the animation, and confirm the password path works with JavaScript disabled.
 - **Dashboard tests** check that disconnecting an app really kills its refresh families and access tokens while other apps keep working, every perk rule (including backdated consents), that third-party apps can't obtain the `perks` scope, that each user sees only their own Watchtower, and that admin is closed to non-admins and to admins without a passkey session.
 - **Pipeline tests** check that publishing doesn't write until the consumer runs, that redelivery persists once, that three consumers split thirty events with none handled twice, that a crashed consumer's unacknowledged entries are reclaimed, that a poison event is dead-lettered while later events still flow, and every detection rule including de-duplication and the trusted-proxy rule for country headers.
+- **CLI tests** run each command in-process against a fresh database: secrets shown once, usage errors (exit 2) and failures (exit 1), key rotation states, passwords only from stdin or generated, and `token verify` against a live issuer, including tampered signatures and wrong audiences.
+- **A migration race test** runs four migrators against one empty database at once (it fails without the advisory lock).
 - **An interop test** drives everything with [`openid-client`](https://github.com/panva/openid-client), an independent certified relying-party library: discovery, authorization, token exchange, userinfo, refresh, introspection, revocation and RP-initiated logout. This shows the provider is interoperable, not just consistent with itself.
 
 CI runs lint, typecheck, build, the test suite and the browser e2e on every push.
@@ -197,7 +230,7 @@ This is not an official OpenID certification, which requires submitting results 
 
 ## Benchmarks
 
-_Phase 8 adds a k6 load test of the token endpoint across two instances. Results will be recorded here._
+BENCHMARK_PLACEHOLDER
 
 ## Threat model
 
@@ -291,8 +324,12 @@ against the access token (OIDC Core §5.4). ID tokens get passed around as proof
 apps/idp           Kingdom ID provider (Fastify)
 apps/demo-client   Minimal relying party built on openid-client
 packages/db        Drizzle schema and SQL migrations
+apps/idp/src/cli   The kingdom CLI
 packages/brand     Kingdom Web Builders design tokens and logos
 e2e                Playwright browser tests
+conformance        OpenID Foundation conformance suite, self-hosted
+scaling            Two instances behind a load balancer, statelessness proof, k6 benchmark
+docs               Email relay setup, screenshots
 ```
 
 ---

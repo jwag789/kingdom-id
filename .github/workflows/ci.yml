@@ -100,3 +100,35 @@ jobs:
           name: conformance-results
           path: conformance/results
           retention-days: 30
+
+  scaling:
+    name: Two instances + k6 benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Builds two Kingdom ID instances behind a round-robin load balancer and
+      # proves a session survives bouncing between them and losing one.
+      - run: scaling/run-proof.sh
+      # The published benchmark: one instance, then two, on a GitHub runner
+      # (a consistent machine that never sleeps). Thresholds fail the job on
+      # errors or a slow p95.
+      - run: scaling/run-bench.sh
+        env:
+          VUS: "50"
+          DURATION: "60s"
+      - name: Benchmark summary
+        if: always()
+        run: cat scaling/results/k6-*.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scaling-results
+          path: scaling/results
+          retention-days: 30

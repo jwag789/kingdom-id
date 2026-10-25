@@ -16,7 +16,8 @@
     "dev": "pnpm -r --parallel dev",
     "db:migrate": "pnpm --filter @kingdom-id/db migrate",
     "db:generate": "pnpm --filter @kingdom-id/db generate",
-    "seed": "pnpm --filter @kingdom-id/idp seed"
+    "seed": "pnpm --filter @kingdom-id/idp seed",
+    "kingdom": "pnpm --silent --filter @kingdom-id/idp kingdom"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

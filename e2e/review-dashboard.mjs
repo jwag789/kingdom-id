@@ -29,7 +29,7 @@ await page.getByRole("button", { name: "Sign up with a passkey" }).click();
 await page.getByRole("button", { name: "Allow" }).click();
 await page.waitForURL("http://localhost:4001/");
 
-execFileSync("pnpm", ["--filter", "@kingdom-id/idp", "make-admin", email], { cwd: "..", stdio: "ignore" });
+execFileSync("pnpm", ["--filter", "@kingdom-id/idp", "kingdom", "users", "admin", email], { cwd: "..", stdio: "ignore" });
 
 for (const [name, path] of [["realms", "/account"], ["treasury", "/account/treasury"], ["masks", "/account/masks"], ["watchtower", "/account/watchtower"], ["keys", "/account/keys"], ["admin", "/admin"]]) {
   await page.goto(`http://localhost:4000${path}`);

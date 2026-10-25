@@ -46,6 +46,8 @@ const schema = z.object({
   // The Redis Stream security events travel on, and its approximate length cap.
   SECURITY_STREAM: z.string().regex(/^[\w:.-]+$/).default("security-events"),
   SECURITY_STREAM_MAXLEN: z.coerce.number().int().positive().default(100_000),
+  // Names this instance in an X-Kingdom-Instance response header (for the scaling demo and debugging).
+  INSTANCE_ID: z.string().regex(/^[\w.-]{1,64}$/).optional(),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
 
   ACCESS_TOKEN_TTL_SECONDS: duration.default(600),

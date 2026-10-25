@@ -18,11 +18,16 @@ export default tseslint.config(
     languageOptions: { globals: { window: "readonly", document: "readonly", navigator: "readonly", fetch: "readonly", atob: "readonly", btoa: "readonly", PublicKeyCredential: "readonly", AbortController: "readonly" } },
   },
   {
+    // k6 scripts run in k6's JavaScript runtime, which provides these globals.
+    files: ["scaling/k6/**/*.js"],
+    languageOptions: { globals: { open: "readonly", __ENV: "readonly", __VU: "readonly" } },
+  },
+  {
     files: ["e2e/*.mjs"],
     languageOptions: { globals: { process: "readonly" } },
   },
   {
-    files: ["**/scripts/**", "**/*.config.*", "e2e/**"],
+    files: ["**/scripts/**", "**/*.config.*", "e2e/**", "scaling/**"],
     rules: { "no-console": "off" },
   },
 );
