@@ -9,6 +9,7 @@ RUN pnpm install --frozen-lockfile --filter "@kingdom-id/idp..." \
  && pnpm --filter @kingdom-id/idp deploy --prod --legacy /out
 
 FROM node:24-alpine
+LABEL org.opencontainers.image.source=https://github.com/jwag789/kingdom-id
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /out .

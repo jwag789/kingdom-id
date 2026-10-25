@@ -2,7 +2,7 @@
 
 Kingdom ID ships as one container image. Each container serves HTTP and also runs two background loops: the signing-key rotation scheduler and a security-event consumer. Run two or more for availability; the API is stateless, so any instance can serve any request ([proof](../README.md#scaling-out)). It needs **Postgres 15+** and **Redis 7+**, and for the email relay, **Amazon SES** in a region that supports receiving.
 
-There are two supported layouts:
+There are two supported layouts. For the cheapest production setup, a single $5 Lightsail machine deployed from GitHub, follow **[Kingdom ID on one Lightsail machine](deploy-lightsail.md)**.
 
 | | [AWS (Terraform)](../deploy/aws) | [Single host (Compose)](../deploy/single-host) |
 |---|---|---|

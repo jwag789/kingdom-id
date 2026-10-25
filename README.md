@@ -36,7 +36,7 @@ Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'
 |---|---|
 | The button builder, at `/brand` on any Kingdom ID | App developers: the official Sign in with Kingdom button in four looks, three sizes and three labels, with usage rules and copy-ready code |
 | [Add "Sign in with Kingdom" to a Next.js app](docs/integrations/nextjs.md) | App developers, with Cappuccino as the worked example ([code](examples/cappuccino)) |
-| [Deploying Kingdom ID](docs/deploy.md) | Operators: AWS with Terraform, or a single host, plus releases and day-two tasks |
+| [Deploying Kingdom ID](docs/deploy.md) | Operators: AWS with Terraform, or a single host, plus releases and day-two tasks. [On one $5 Lightsail machine](docs/deploy-lightsail.md), deployed from GitHub |
 | [Email relay](docs/email-relay.md) | Setting up SES, with every DNS record and why it's there |
 | [Conformance](conformance/README.md) | Running the OpenID Foundation suite, and why each non-pass is accepted |
 | [The `kingdom` CLI](#the-kingdom-cli) | Operators |

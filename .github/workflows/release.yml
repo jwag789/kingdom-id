@@ -70,3 +70,49 @@ jobs:
           service: kingdom-id
           cluster: kingdom-id
           wait-for-service-stability: true
+
+  # Runs once a single machine is set up (docs/deploy-lightsail.md): set the
+  # repository variables DEPLOY_HOST (the machine's address) and ISSUER_HOST,
+  # and the secret DEPLOY_SSH_KEY (a key that can SSH in as DEPLOY_USER,
+  # default ubuntu, with passwordless sudo). Secrets stay on the machine:
+  # install.sh generates them there on the first run.
+  deploy-single-host:
+    needs: image
+    if: vars.DEPLOY_HOST != ''
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency: deploy-single-host
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trust the machine's SSH host key
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          # Optional: pin the key (ssh-keyscan output) instead of trusting it on first use.
+          KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          if [ -n "$KNOWN_HOSTS" ]; then echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts; else ssh-keyscan -T 15 "$DEPLOY_HOST" > ~/.ssh/known_hosts; fi
+      - name: Install the SSH key
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+      - name: Copy the deployment files
+        env:
+          TARGET: ${{ vars.DEPLOY_USER || 'ubuntu' }}@${{ vars.DEPLOY_HOST }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "$TARGET" 'mkdir -p kingdom-id'
+          scp -i ~/.ssh/deploy_key deploy/single-host/docker-compose.yml deploy/single-host/Caddyfile deploy/single-host/install.sh "$TARGET:kingdom-id/"
+      - name: Install and start
+        env:
+          TARGET: ${{ vars.DEPLOY_USER || 'ubuntu' }}@${{ vars.DEPLOY_HOST }}
+          IMAGE: ${{ needs.image.outputs.image }}
+          ISSUER_HOST: ${{ vars.ISSUER_HOST }}
+          # This job's own token: it can pull the private image and expires when the job ends.
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          # The token goes over stdin, never onto a command line where `ps` would show it.
+          printf '%s\n' "$GHCR_TOKEN" | ssh -i ~/.ssh/deploy_key "$TARGET" \
+            "read -r GHCR_TOKEN && export GHCR_TOKEN GHCR_USER='$GHCR_USER' && sudo --preserve-env=GHCR_TOKEN,GHCR_USER kingdom-id/install.sh '$IMAGE' '$ISSUER_HOST'"
