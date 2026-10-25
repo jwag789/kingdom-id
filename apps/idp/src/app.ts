@@ -22,9 +22,11 @@ import { AccessTokenVerifier } from "./oauth/access-tokens.js";
 import { CodeStore } from "./oauth/codes.js";
 import { ConsentService } from "./oauth/consents.js";
 import { GrantService } from "./oauth/grants.js";
+import { BackchannelLogout, type LogoutDelivery } from "./oauth/backchannel.js";
 import { InteractionStore } from "./oauth/interactions.js";
 import { RelayService } from "./relay/service.js";
 import { AlertService } from "./security/pipeline/alerts.js";
+import type { SecurityEventEnvelope } from "./security/pipeline/events.js";
 import { DetectionRules } from "./security/pipeline/rules.js";
 import { EventStream } from "./security/pipeline/stream.js";
 import { httpsCertFetcher, s3MessageFetcher } from "./relay/sns.js";
@@ -93,7 +95,7 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
       ? new SesTransport(config.AWS_REGION!, config.RELAY_SES_CONFIGURATION_SET)
       : new MemoryTransport((msg, data) => app.log.info(data, msg)));
   const rules = new DetectionRules(db, redis);
-  const eventStream = new EventStream(
+  const eventStream = new EventStream<SecurityEventEnvelope>(
     redis,
     config.SECURITY_STREAM,
     config.SECURITY_STREAM_MAXLEN,
@@ -104,6 +106,18 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
     app.log,
   );
   const events = new SecurityEventService(db, eventStream, config.TRUST_PROXY);
+  const clientService = new ClientService(db);
+  const logoutStream: EventStream<LogoutDelivery> = new EventStream<LogoutDelivery>(
+    redis,
+    config.BACKCHANNEL_STREAM,
+    config.SECURITY_STREAM_MAXLEN,
+    (notice): Promise<void> => backchannel.deliver(notice),
+    app.log,
+  );
+  const backchannel: BackchannelLogout = new BackchannelLogout(db, clientService, keys, logoutStream, {
+    issuer: config.ISSUER,
+    serverSecret,
+  });
   const mailer = deps.mailer ?? new LogMailer((msg, data) => app.log.info(data, msg));
 
   const ctx: Context = {
@@ -119,6 +133,8 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
     events,
     perks: new PerkService(db),
     eventStream,
+    logoutStream,
+    backchannel,
     alerts: new AlertService(db),
     relay: new RelayService(db, redis, relayTransport, {
       domain: config.relayDomain,
@@ -127,7 +143,7 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
     }),
     sessionCookie: cookieName("kid_session", config.secureCookies),
     emailVerification: new EmailVerification(redis, mailer, config.ISSUER),
-    clients: new ClientService(db),
+    clients: clientService,
     consents: new ConsentService(db),
     codes: new CodeStore(redis, config.AUTH_CODE_TTL_SECONDS),
     interactions: new InteractionStore(redis, config.INTERACTION_TTL_SECONDS),

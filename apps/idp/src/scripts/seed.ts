@@ -49,6 +49,7 @@ if (process.env.CAPPUCCINO_CLIENT_SECRET) {
     firstParty: true,
     redirectUris: ["http://localhost:4002/api/auth/callback/kingdom"],
     postLogoutRedirectUris: ["http://localhost:4002/"],
+    backchannelLogoutUri: "http://localhost:4002/api/kingdom/backchannel-logout",
     secret: process.env.CAPPUCCINO_CLIENT_SECRET,
   });
   console.log('Registered client "cappuccino" → http://localhost:4002');

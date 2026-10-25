@@ -12,6 +12,8 @@ export function discoveryDocument(issuer: string) {
     revocation_endpoint: `${issuer}/revoke`,
     introspection_endpoint: `${issuer}/introspect`,
     end_session_endpoint: `${issuer}/end-session`,
+    backchannel_logout_supported: true,
+    backchannel_logout_session_supported: true,
     jwks_uri: `${issuer}/.well-known/jwks.json`,
     scopes_supported: SUPPORTED_SCOPES,
     response_types_supported: ["code"],

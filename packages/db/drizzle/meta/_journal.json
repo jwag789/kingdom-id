@@ -50,6 +50,13 @@
       "when": 1792930401437,
       "tag": "0006_security_pipeline",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792947342264,
+      "tag": "0007_backchannel_logout",
+      "breakpoints": true
     }
   ]
 }

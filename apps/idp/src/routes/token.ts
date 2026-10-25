@@ -57,7 +57,10 @@ async function authorizationCode(ctx: Context, req: FastifyRequest, client: Clie
     // have been the attacker's. Revoke everything it produced (RFC 6749 §4.1.2).
     const revoked = await ctx.grants.revokeByCodeHash(codeHash);
     req.log.warn({ event: "code_replay", clientId: redemption.clientId, grantId: revoked?.id }, "authorization code replay");
-    if (revoked) await ctx.events.record(req, { type: "code_replay", userId: revoked.userId, clientId: revoked.clientId });
+    if (revoked) {
+      await ctx.events.record(req, { type: "code_replay", userId: revoked.userId, clientId: revoked.clientId });
+      await ctx.backchannel.forCompromisedGrant(revoked);
+    }
     throw invalidGrant;
   }
   if (redemption.status === "invalid") throw invalidGrant;
@@ -107,6 +110,7 @@ async function refreshToken(ctx: Context, req: FastifyRequest, client: Client, b
       "refresh token reuse: family revoked",
     );
     await ctx.events.record(req, { type: "refresh_token_reuse", userId: rotation.grant.userId, clientId: client.id });
+    await ctx.backchannel.forCompromisedGrant(rotation.grant);
     throw invalidGrant;
   }
   if (rotation.status === "invalid") throw invalidGrant;

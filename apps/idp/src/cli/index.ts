@@ -23,7 +23,8 @@ Usage: kingdom <command> [options]
 Clients
   clients list [--json]
   clients create --name <name> --redirect-uri <uri> [--redirect-uri <uri>...]
-                 [--post-logout-uri <uri>...] [--logo-uri <uri>] [--id <id>]
+                 [--post-logout-uri <uri>...] [--backchannel-logout-uri <uri>]
+                 [--logo-uri <uri>] [--id <id>]
                  [--public] [--first-party] [--auth-method basic|post]
                  [--id-token-alg RS256|ES256] [--subject pairwise|public] [--json]
 
@@ -120,6 +121,7 @@ async function clientsCreate(db: Database, args: string[], io: Io) {
       id: { type: "string" },
       "redirect-uri": { type: "string", multiple: true },
       "post-logout-uri": { type: "string", multiple: true },
+      "backchannel-logout-uri": { type: "string" },
       "logo-uri": { type: "string" },
       public: { type: "boolean" },
       "first-party": { type: "boolean" },
@@ -144,6 +146,7 @@ async function clientsCreate(db: Database, args: string[], io: Io) {
     redirectUris: values["redirect-uri"],
     ...(values.id ? { id: values.id } : {}),
     ...(values["post-logout-uri"] ? { postLogoutRedirectUris: values["post-logout-uri"] } : {}),
+    ...(values["backchannel-logout-uri"] ? { backchannelLogoutUri: values["backchannel-logout-uri"] } : {}),
     ...(values["logo-uri"] ? { logoUri: values["logo-uri"] } : {}),
     ...(values["first-party"] ? { firstParty: true } : {}),
     tokenEndpointAuthMethod: method === "post" ? "client_secret_post" : "client_secret_basic",

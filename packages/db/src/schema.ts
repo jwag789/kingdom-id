@@ -82,6 +82,9 @@ export const clients = pgTable("clients", {
   tokenEndpointAuthMethod: tokenEndpointAuthMethod("token_endpoint_auth_method").notNull(),
   redirectUris: text("redirect_uris").array().notNull(),
   postLogoutRedirectUris: text("post_logout_redirect_uris").array().notNull().default(sql`'{}'::text[]`),
+  // OIDC Back-Channel Logout: where Kingdom ID POSTs a logout token when the
+  // user signs out of Kingdom or disconnects this app.
+  backchannelLogoutUri: text("backchannel_logout_uri"),
   allowedScopes: text("allowed_scopes").array().notNull(),
   subjectType: subjectType("subject_type").notNull().default("pairwise"),
   // Pairwise subjects are derived from this. It's the redirect host, so two

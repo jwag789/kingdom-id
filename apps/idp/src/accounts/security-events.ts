@@ -14,7 +14,7 @@ export type { SecurityEventInput, SecurityEventType } from "../security/pipeline
 export class SecurityEventService {
   constructor(
     private readonly db: Database,
-    private readonly stream: EventStream,
+    private readonly stream: EventStream<SecurityEventEnvelope>,
     private readonly trustProxyHeaders: boolean,
   ) {}
 

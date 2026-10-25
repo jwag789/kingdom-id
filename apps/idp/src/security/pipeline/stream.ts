@@ -1,6 +1,5 @@
 import { hostname } from "node:os";
 import type { Redis } from "ioredis";
-import type { SecurityEventEnvelope } from "./events.js";
 
 const GROUP = "persist-and-detect";
 const BATCH = 50;
@@ -10,7 +9,7 @@ const BLOCK_MS = 5000;
 const RECLAIM_IDLE_MS = 30_000;
 const MAX_ATTEMPTS = 5;
 
-export type EventHandler = (event: SecurityEventEnvelope) => Promise<void>;
+export type EventHandler<T> = (event: T) => Promise<void>;
 
 interface Logger {
   error: (obj: object, msg: string) => void;
@@ -18,12 +17,13 @@ interface Logger {
 }
 
 /**
- * Security events on a Redis Stream with one consumer group. Every API
+ * Durable work on a Redis Stream with one consumer group: security events,
+ * and back-channel logout deliveries. Every API
  * instance publishes; every instance also runs a consumer, and the group
  * hands each entry to exactly one of them. Delivery is at-least-once, so the
  * handler must be idempotent (it is: events persist by ID).
  */
-export class EventStream {
+export class EventStream<T extends { id: string }> {
   private running = false;
   private reader: Redis | undefined;
   private loop: Promise<void> | undefined;
@@ -33,7 +33,7 @@ export class EventStream {
     private readonly redis: Redis,
     readonly key: string,
     private readonly maxLength: number,
-    private readonly handle: EventHandler,
+    private readonly handle: EventHandler<T>,
     private readonly log: Logger,
   ) {}
 
@@ -41,7 +41,7 @@ export class EventStream {
     return `${this.key}:dead`;
   }
 
-  async publish(event: SecurityEventEnvelope): Promise<void> {
+  async publish(event: T): Promise<void> {
     // Approximate trimming keeps XADD O(1); the stream is a buffer, Postgres is the record.
     await this.redis.xadd(this.key, "MAXLEN", "~", this.maxLength, "*", "e", JSON.stringify(event));
   }
@@ -139,7 +139,7 @@ export class EventStream {
     const attemptsKey = `${this.key}:attempts`;
     try {
       const raw = fields[fields.indexOf("e") + 1];
-      await this.handle(JSON.parse(raw!) as SecurityEventEnvelope);
+      await this.handle(JSON.parse(raw!) as T);
       await this.redis.multi().xack(this.key, GROUP, id).hdel(attemptsKey, id).exec();
     } catch (err) {
       const attempts = await this.redis.hincrby(attemptsKey, id, 1);

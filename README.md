@@ -24,11 +24,11 @@ Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'
 
 | | |
 |---|---|
-| **Standards** | OAuth 2.0 and OpenID Connect written from the RFCs; no OIDC library. [23 specifications](#standards-implemented): 17 RFCs, 5 OpenID specifications and W3C WebAuthn Level 3. |
+| **Standards** | OAuth 2.0 and OpenID Connect written from the RFCs; no OIDC library. [24 specifications](#standards-implemented): 17 RFCs, 6 OpenID specifications and W3C WebAuthn Level 3. |
 | **Conformance** | OpenID Foundation Basic OP plan in CI: [25 passed, 0 failed](#conformance). |
 | **Security** | Mandatory PKCE, refresh rotation with reuse detection, passkeys, a Redis Streams detection pipeline, and a [threat model](#threat-model). |
 | **Scale** | Stateless: [2.06× throughput](#benchmarks) from a second instance, proven [across instances with no sticky sessions](#scaling-out). |
-| **Tests** | 180 unit and integration tests on real Postgres and Redis, 16 browser end-to-end tests with WCAG 2.1 AA checks, and interop with the certified `openid-client`. |
+| **Tests** | 188 unit and integration tests on real Postgres and Redis, 18 browser end-to-end tests with WCAG 2.1 AA checks, and interop with the certified `openid-client`. |
 
 ## Documentation
 
@@ -51,7 +51,7 @@ Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'
 
 | Section | What it does |
 |---|---|
-| **Realms** | Every connected app, the exact claims it received (the ID it knows you by, name, email, perks, offline access), when it was connected and last used. **Disconnect** removes the consent and revokes every grant for that app, so its refresh token families and live access tokens stop working immediately. |
+| **Realms** | Every connected app, the exact claims it received (the ID it knows you by, name, email, perks, offline access), when it was connected and last used. **Disconnect** removes the consent and revokes every grant for that app, so its refresh token families and live access tokens stop working immediately, and a back-channel logout notice signs you out of the app itself. |
 | **Treasury** | Perks you've unlocked, plus the ones within reach and what's left to unlock them. Apps offer perks; the rules are *connected*, *connected for N days*, *connected N Kingdom apps*, or *granted by hand*. First-party apps receive unlocked perks as the `perks` claim. |
 | **Masks** | Each app's private email address, with how much mail it has forwarded and blocked. **Pause** drops new mail until resumed; **Delete** retires the address for good, and the app gets a fresh one next time. |
 | **Watchtower** | A timeline of sign-ins (and failed attempts against your account), new passkeys, connected and disconnected apps, and alerts when Kingdom ID blocks a copied refresh token or a replayed sign-in. |
@@ -129,7 +129,8 @@ Operators manage a deployment from the command line. The same binary ships in th
 ```text
 kingdom clients list [--json]
 kingdom clients create --name <name> --redirect-uri <uri>... [--public] [--first-party]
-                       [--post-logout-uri <uri>...] [--auth-method basic|post]
+                       [--post-logout-uri <uri>...] [--backchannel-logout-uri <uri>]
+                       [--auth-method basic|post]
                        [--id-token-alg RS256|ES256] [--subject pairwise|public] [--json]
 kingdom keys list [--json]
 kingdom keys rotate [--alg RS256|ES256]
@@ -176,7 +177,7 @@ pnpm test:e2e    # Playwright through the demo client: passkeys via a virtual au
 ```
 
 - **Unit tests** cover PKCE (including the RFC 7636 Appendix B vector), authorization request validation, redirect URI rules, key encryption and config.
-- **Integration tests** run the real app against real Postgres and Redis: the full flow, key rotation (including five instances rotating at once), refresh token rotation and reuse detection (including concurrent exchanges), code replay, revocation, introspection, logout, token endpoint attacks, CSRF, cookies, rate limits and headers.
+- **Integration tests** run the real app against real Postgres and Redis: the full flow, key rotation (including five instances rotating at once), refresh token rotation and reuse detection (including concurrent exchanges), code replay, revocation, introspection, logout, back-channel logout (signed logout tokens, retries, dead-lettering), token endpoint attacks, CSRF, cookies, rate limits and headers.
 - **Passkey tests** use a software authenticator that produces real WebAuthn attestations and assertions, so the server's verification runs unmodified: single-use and browser-bound challenges, wrong-origin (phishing) assertions, mismatched user handles, counter rollback, and required user verification.
 - **Browser e2e tests** sign up and back in with a passkey through Chromium's virtual authenticator, check every page against WCAG 2.1 AA in dark and light mode at desktop and phone widths, check there's no horizontal scroll on phones, confirm `prefers-reduced-motion` stops the animation, and confirm the password path works with JavaScript disabled.
 - **Dashboard tests** check that disconnecting an app really kills its refresh families and access tokens while other apps keep working, every perk rule (including backdated consents), that third-party apps can't obtain the `perks` scope, that each user sees only their own Watchtower, and that admin is closed to non-admins and to admins without a passkey session.
@@ -196,6 +197,7 @@ CI runs lint, typecheck, build, the test suite and the browser e2e on every push
 | Token revocation | RFC 7009 |
 | Token introspection | RFC 7662 |
 | RP-initiated logout | OpenID Connect RP-Initiated Logout 1.0 |
+| Back-channel logout on sign-out, disconnect and token theft | OpenID Connect Back-Channel Logout 1.0 |
 | `offline_access` | OpenID Connect Core 1.0 §11 |
 | PKCE, S256 only, required for every client | RFC 7636; RFC 9700 §2.1.1 |
 | ID tokens, UserInfo, `prompt`, `max_age`, `id_token_hint`, `nonce`, `at_hash` | OpenID Connect Core 1.0 |
@@ -277,7 +279,7 @@ Reproduce it with `VUS=50 DURATION=60s scaling/run-bench.sh` (`IDP_CPUS` sets th
 | WebAuthn replay or cross-browser relay | Challenges are random, single-use (`GETDEL`), expire in five minutes, and are bound to the browser that requested them. The returned user handle must match the credential's owner, and a signature counter that goes backwards is rejected. |
 | Admin takeover | Admin is a database flag set only from the command line, and every admin page also requires a passkey session (`acr` = `phr`), so a phished password can't reach it. Admin actions are written to the audit log. |
 | Cross-app linkage through perks | Perks reveal which Kingdom apps someone uses, so the `perks` scope is offered only to first-party apps by default; third parties never receive it. |
-| An app keeps access after being disconnected | Disconnect removes the consent first, then revokes every grant for the app, which kills refresh token families and access tokens (checked via `gid`). UserInfo also requires the consent to exist. |
+| An app keeps access after being disconnected | Disconnect removes the consent first, then revokes every grant for the app, which kills refresh token families and access tokens (checked via `gid`). UserInfo also requires the consent to exist. Apps with a registered back-channel logout URI also receive a signed logout token, so their own session ends too, not just their tokens. |
 | The relay used as an open relay or to spoof a member | Only an address's owner can send through it, and only with mail that passes SPF or DKIM without failing DMARC. Spoof attempts are dropped and shown in Watchtower. Unknown and deleted addresses and relay loops are dropped. |
 | Forged inbound mail notifications | `/relay/sns` accepts only messages for the configured topic with a valid SNS signature, verified against a certificate fetched over HTTPS from an Amazon SNS host. Subscription confirmation follows only SNS-hosted URLs. Redelivered notifications are processed once. |
 | Real address leaking through relayed mail | Replies leave from the private address with `To`/`Cc`/`Bcc` and identifying headers rebuilt, and `mailto:` unsubscribe links are stripped. Forwarding waits until the member's own address is verified. |
@@ -343,6 +345,8 @@ against the access token (OIDC Core §5.4). ID tokens get passed around as proof
 **Strict reuse detection, no grace window.** Some providers tolerate a reused refresh token for a few seconds to absorb client retries. Kingdom ID doesn't: two concurrent exchanges of one token revoke the family, and the client must sign the user in again. That is safer, and a well-behaved client never sends the same refresh token twice.
 
 **Offline grants survive logout.** Signing out ends the browser session and its online grants immediately. Grants with `offline_access` are the ones a user explicitly let outlive their session, so they continue until revoked or disconnected, as OIDC Core §11 intends.
+
+**Back-channel logout goes through a queue.** Revoking tokens can't end an app's own cookie session, so Kingdom ID POSTs a signed logout token (`typ: logout+jwt`, 2-minute lifetime) to each app's registered endpoint on sign-out, disconnect and token theft. Delivery runs on a second Redis Stream with the same consumer group as security events: the user's request doesn't wait on a slow app, a failing endpoint is retried, and after five failures the notice is dead-lettered. Redirects aren't followed and each attempt times out after 5 seconds.
 
 **First-party apps share a subject.** Kingdom's own apps are registered as first-party and share one pairwise sector, so Cappuccino and InkSpirit see the same `sub` for the same person. Every other app gets its own sector, so third parties still can't correlate users.
 

@@ -53,3 +53,39 @@ test("Cappuccino signs in with Kingdom and receives a private email and cross-ap
   const session = await page.request.get("http://localhost:4000/account", { maxRedirects: 0 });
   expect(session.status()).toBe(303); // the Kingdom session is gone too
 });
+
+/** Signs a fresh member into Cappuccino directly, and returns once they're in. */
+async function signInToCappuccino(page: Page, context: BrowserContext, name: string) {
+  await addPasskeyAuthenticator(context, page);
+  await page.goto("http://localhost:4002/");
+  await page.getByRole("button", { name: "Sign in with Kingdom" }).click();
+  await page.getByRole("link", { name: "Create an account" }).click();
+  await page.getByLabel("Name").fill(name);
+  await page.getByLabel("Email").fill(`e2e-bcl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@example.test`);
+  await page.getByRole("button", { name: "Sign up with a passkey" }).click();
+  await page.getByRole("button", { name: "Allow" }).click();
+  await expect(page.getByTestId("greeting")).toHaveText(`Welcome back, ${name}`);
+}
+
+/** Logout notices are delivered asynchronously; reload until Cappuccino shows it. */
+async function expectSignedOutOfCappuccino(page: Page) {
+  await expect(async () => {
+    await page.goto("http://localhost:4002/");
+    await expect(page.getByRole("button", { name: "Sign in with Kingdom" })).toBeVisible({ timeout: 500 });
+  }).toPass({ timeout: 15_000 });
+}
+
+test("disconnecting Cappuccino in Your Kingdom signs the member out of Cappuccino (back-channel logout)", async ({ page, context }) => {
+  await signInToCappuccino(page, context, "Hedy Lamarr");
+  await page.goto("http://localhost:4000/account");
+  await page.getByRole("button", { name: "Disconnect Cappuccino" }).click();
+  await expect(page.getByRole("status")).toContainText("Disconnected Cappuccino");
+  await expectSignedOutOfCappuccino(page);
+});
+
+test("signing out of Kingdom signs the member out of Cappuccino too", async ({ page, context }) => {
+  await signInToCappuccino(page, context, "Radia Perlman");
+  await page.goto("http://localhost:4000/account");
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expectSignedOutOfCappuccino(page);
+});

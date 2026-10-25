@@ -41,6 +41,7 @@ export function testConfig(overrides: Record<string, string> = {}): Config {
     LOG_LEVEL: "silent",
     // Each test app gets its own stream, so parallel test files never consume each other's events.
     SECURITY_STREAM: `security-events-test-${randomUUID()}`,
+    BACKCHANNEL_STREAM: `backchannel-test-${randomUUID()}`,
     ...overrides,
   });
 }

@@ -1,3 +1,4 @@
+import { decodeJwt } from "jose";
 import NextAuth from "next-auth";
 import type { OIDCConfig } from "next-auth/providers";
 
@@ -49,23 +50,35 @@ const Kingdom: OIDCConfig<KingdomProfile> = {
 declare module "next-auth" {
   interface Session {
     perks: KingdomPerk[];
+    /** Kingdom's stable ID for this member: key your own records on this, never on email. */
+    kingdomSub: string;
   }
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [Kingdom],
   callbacks: {
-    jwt({ token, account, profile }) {
+    async jwt({ token, account, profile }) {
       // Runs at sign-in with the tokens and profile, then on every request with just the token.
       if (account && profile) {
         token.perks = (profile as unknown as KingdomProfile).perks ?? [];
         // Kept in the encrypted session cookie for RP-initiated logout; never sent to the browser.
         token.idToken = account.id_token;
+        // Kingdom's stable ID for this member. Auth.js gives every user a random
+        // `token.sub` of its own; Kingdom's `sub` arrives as providerAccountId.
+        token.kingdomSub = account.providerAccountId;
+        // The Kingdom session this sign-in belongs to, for back-channel logout.
+        token.sid = account.id_token ? decodeJwt(account.id_token).sid : undefined;
+        token.signedInAt = Math.floor(Date.now() / 1000);
       }
+      // Kingdom ID said this session ended (sign-out, disconnect, or stolen tokens): end it here too.
+      const { isLoggedOut } = await import("@/lib/kingdom-logout");
+      if (isLoggedOut({ sid: token.sid, kingdomSub: token.kingdomSub, signedInAt: token.signedInAt })) return null;
       return token;
     },
     session({ session, token }) {
       session.perks = (token.perks as KingdomPerk[] | undefined) ?? [];
+      session.kingdomSub = token.kingdomSub as string;
       return session;
     },
   },

@@ -64,6 +64,7 @@ export function registerDashboardRoutes(app: FastifyInstance, ctx: Context) {
     // then every grant, which kills refresh token families and access tokens.
     const hadConsent = await ctx.consents.remove(user.id, client.id);
     const revoked = await ctx.grants.revokeForUserClient(user.id, client.id, "disconnected_by_user");
+    await ctx.backchannel.forDisconnect(user.id, client);
     if (hadConsent || revoked > 0) {
       await ctx.events.record(req, { type: "app_disconnected", userId: user.id, clientId: client.id, details: { grantsRevoked: revoked } });
     }

@@ -13,6 +13,8 @@ import { LogoutPage, MessagePage } from "../views/pages.js";
 export async function signOut(ctx: Context, req: FastifyRequest, reply: FastifyReply): Promise<void> {
   const active = await ctx.sessions.resolve(req.cookies[ctx.sessionCookie]);
   if (active) {
+    // Queue notices first: they're derived from this session's grants.
+    await ctx.backchannel.forSession(active.session.id, active.user.id);
     await ctx.sessions.revoke(active.session.id);
     await ctx.grants.revokeOnlineForSession(active.session.id);
     req.log.info({ event: "logout", userId: active.user.id }, "signed out");

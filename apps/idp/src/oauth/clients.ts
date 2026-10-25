@@ -48,6 +48,8 @@ export interface CreateClientInput {
   type: "confidential" | "public";
   redirectUris: string[];
   postLogoutRedirectUris?: string[];
+  /** OIDC Back-Channel Logout endpoint. */
+  backchannelLogoutUri?: string;
   /** A Kingdom-owned app: shares one pairwise sector with the other first-party apps. */
   firstParty?: boolean;
   allowedScopes?: string[];
@@ -76,6 +78,8 @@ export class ClientService {
   async create(input: CreateClientInput): Promise<{ client: Client; secret?: string }> {
     const host = validateRedirectUris(input.redirectUris);
     validatePostLogoutUris(input.postLogoutRedirectUris ?? []);
+    // Same rules: https, or http on loopback; no fragment.
+    if (input.backchannelLogoutUri) validatePostLogoutUris([input.backchannelLogoutUri]);
     const secret = input.type === "confidential" ? (input.secret ?? randomToken()) : undefined;
     const values: NewClient = {
       id: input.id ?? `kid_${randomToken(12)}`,
@@ -87,6 +91,7 @@ export class ClientService {
         input.type === "public" ? "none" : (input.tokenEndpointAuthMethod ?? "client_secret_basic"),
       redirectUris: input.redirectUris,
       postLogoutRedirectUris: input.postLogoutRedirectUris ?? [],
+      backchannelLogoutUri: input.backchannelLogoutUri ?? null,
       firstParty: input.firstParty ?? false,
       requirePkce: input.requirePkce ?? true,
       allowedScopes:
