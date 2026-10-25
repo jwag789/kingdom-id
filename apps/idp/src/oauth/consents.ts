@@ -1,5 +1,5 @@
-import { type Consent, type Database, type User, consents, users } from "@kingdom-id/db";
-import { and, eq, sql } from "drizzle-orm";
+import { type Client, type Consent, type Database, type User, clients, consents, users } from "@kingdom-id/db";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 export class ConsentService {
   constructor(private readonly db: Database) {}
@@ -24,6 +24,32 @@ export class ConsentService {
           updatedAt: new Date(),
         },
       });
+  }
+
+  /** The user's connected apps ("realms"), most recently used first. */
+  async listForUser(userId: string): Promise<{ consent: Consent; client: Client }[]> {
+    return this.db
+      .select({ consent: consents, client: clients })
+      .from(consents)
+      .innerJoin(clients, eq(clients.id, consents.clientId))
+      .where(eq(consents.userId, userId))
+      .orderBy(desc(sql`coalesce(${consents.lastUsedAt}, ${consents.createdAt})`));
+  }
+
+  async touch(userId: string, clientId: string): Promise<void> {
+    await this.db
+      .update(consents)
+      .set({ lastUsedAt: sql`now()` })
+      .where(and(eq(consents.userId, userId), eq(consents.clientId, clientId)));
+  }
+
+  /** Forgets the consent. Returns whether there was one. Callers also revoke the app's grants. */
+  async remove(userId: string, clientId: string): Promise<boolean> {
+    const removed = await this.db
+      .delete(consents)
+      .where(and(eq(consents.userId, userId), eq(consents.clientId, clientId)))
+      .returning({ clientId: consents.clientId });
+    return removed.length > 0;
   }
 
   /** Resolves the `sub` a client knows back to a user, if the user still has the app connected. */

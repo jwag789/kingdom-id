@@ -16,6 +16,7 @@ export async function signOut(ctx: Context, req: FastifyRequest, reply: FastifyR
     await ctx.sessions.revoke(active.session.id);
     await ctx.grants.revokeOnlineForSession(active.session.id);
     req.log.info({ event: "logout", userId: active.user.id }, "signed out");
+    await ctx.events.record(req, { type: "signed_out", userId: active.user.id });
   }
   reply.clearCookie(ctx.sessionCookie, cookieOptions(ctx.config.secureCookies));
 }

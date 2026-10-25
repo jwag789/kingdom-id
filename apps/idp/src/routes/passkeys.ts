@@ -35,10 +35,12 @@ export function registerPasskeyRoutes(app: FastifyInstance, ctx: Context) {
         body.response as AuthenticationResponseJSON,
       );
       req.log.info({ event: "login_succeeded", method: "passkey", userId: user.id }, "login succeeded");
+      await ctx.events.record(req, { type: "sign_in", userId: user.id, details: { method: "passkey" } });
       return { redirect: await signIn(ctx, req, reply, user, amr, body.interaction) };
     } catch (err) {
       if (err instanceof PasskeyError) {
         req.log.info({ event: "login_failed", method: "passkey" }, "passkey sign-in failed");
+        await ctx.events.record(req, { type: "sign_in_failed", details: { method: "passkey" } });
         return fail(reply, 400, err.message);
       }
       throw err;
@@ -82,9 +84,13 @@ export function registerPasskeyRoutes(app: FastifyInstance, ctx: Context) {
       const { user, passkey } = await ctx.passkeys.register(ctx.csrf.browserId(req, reply), body.response as RegistrationResponseJSON);
       req.log.info({ event: "passkey_registered", userId: user.id, passkeyId: passkey.id }, "passkey registered");
       // Adding a passkey to a signed-in account keeps the current session.
-      if (active && active.user.id === user.id) return { redirect: "/account?added=passkey" };
+      if (active && active.user.id === user.id) {
+        await ctx.events.record(req, { type: "passkey_added", userId: user.id, details: { name: passkey.name } });
+        return { redirect: "/account/keys?added=passkey" };
+      }
       await ctx.emailVerification.send(user);
       req.log.info({ event: "signup", method: "passkey", userId: user.id }, "account created");
+      await ctx.events.record(req, { type: "account_created", userId: user.id, details: { method: "passkey" } });
       return { redirect: await signIn(ctx, req, reply, user, passkeyAmr(passkey.backedUp), body.interaction) };
     } catch (err) {
       if (err instanceof PasskeyError) return fail(reply, 400, err.message);

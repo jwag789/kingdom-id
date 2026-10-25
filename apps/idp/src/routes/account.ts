@@ -1,6 +1,5 @@
 import type { User } from "@kingdom-id/db";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { PasskeyError } from "../accounts/passkeys.js";
 import { EmailTakenError, signupSchema } from "../accounts/users.js";
 import type { Context } from "../context.js";
 import { cookieOptions } from "../security/cookies.js";
@@ -8,7 +7,7 @@ import { limits } from "../security/rate-limit.js";
 import { AMR_PASSWORD } from "../accounts/auth-methods.js";
 import { signOut } from "./logout.js";
 import { sendPage, uiFor } from "../views/layout.js";
-import { AccountPage, LoginPage, MessagePage, SignupPage } from "../views/pages.js";
+import { LoginPage, MessagePage, SignupPage } from "../views/pages.js";
 
 const GENERIC_LOGIN_ERROR = "That email and password don't match a Kingdom account.";
 
@@ -23,9 +22,13 @@ export async function attemptLogin(ctx: Context, req: FastifyRequest): Promise<L
   const user = email && password ? await ctx.users.authenticate(email, password) : undefined;
   if (!user) {
     req.log.info({ event: "login_failed" }, "login failed");
+    // Recorded against the account if it exists, so its owner sees the attempt in Watchtower.
+    const userId = email ? await ctx.users.idForEmail(email) : undefined;
+    await ctx.events.record(req, { type: "sign_in_failed", userId, details: { method: "password" } });
     return { ok: false, email, error: GENERIC_LOGIN_ERROR };
   }
   req.log.info({ event: "login_succeeded", userId: user.id }, "login succeeded");
+  await ctx.events.record(req, { type: "sign_in", userId: user.id, details: { method: "password" } });
   return { ok: true, user };
 }
 
@@ -50,6 +53,7 @@ export async function attemptSignup(ctx: Context, req: FastifyRequest): Promise<
     const user = await ctx.users.create(parsed.data);
     await ctx.emailVerification.send(user);
     req.log.info({ event: "signup", userId: user.id }, "account created");
+    await ctx.events.record(req, { type: "account_created", userId: user.id, details: { method: "password" } });
     return { ok: true, user };
   } catch (err) {
     if (err instanceof EmailTakenError) {
@@ -112,36 +116,6 @@ export function registerAccountRoutes(app: FastifyInstance, ctx: Context) {
     return reply.redirect("/account", 303);
   });
 
-  const accountPage = async (req: FastifyRequest, reply: FastifyReply, user: User, extra: { notice?: string; error?: string } = {}) =>
-    AccountPage({
-      ui: uiFor(ctx, req),
-      csrf: ctx.csrf.token(req, reply),
-      user: { name: user.name, email: user.email, emailVerified: user.emailVerified, hasPassword: !!user.passwordHash },
-      passkeys: await ctx.passkeys.listForUser(user.id),
-      ...extra,
-    });
-
-  app.get<{ Querystring: { added?: string } }>("/account", async (req, reply) => {
-    const active = await ctx.sessions.resolve(req.cookies[ctx.sessionCookie]);
-    if (!active) return reply.redirect("/login", 303);
-    const notice = req.query.added === "passkey" ? "Passkey added. You can use it to sign in now." : undefined;
-    return sendPage(reply, await accountPage(req, reply, active.user, notice ? { notice } : {}));
-  });
-
-  app.post<{ Params: { id: string } }>("/account/passkeys/:id/delete", async (req, reply) => {
-    ctx.csrf.verify(req);
-    const active = await ctx.sessions.resolve(req.cookies[ctx.sessionCookie]);
-    if (!active) return reply.redirect("/login", 303);
-    try {
-      await ctx.passkeys.remove(active.user, req.params.id);
-    } catch (err) {
-      if (err instanceof PasskeyError) return sendPage(reply, await accountPage(req, reply, active.user, { error: err.message }), 400);
-      throw err;
-    }
-    req.log.info({ event: "passkey_removed", userId: active.user.id }, "passkey removed");
-    return reply.redirect("/account", 303);
-  });
-
   app.post("/logout", async (req, reply) => {
     ctx.csrf.verify(req);
     await signOut(ctx, req, reply);
@@ -158,6 +132,7 @@ export function registerAccountRoutes(app: FastifyInstance, ctx: Context) {
       );
     }
     await ctx.users.markEmailVerified(userId);
+    await ctx.events.record(req, { type: "email_verified", userId });
     return sendPage(reply, MessagePage({ ui: uiFor(ctx, req), title: "Email verified", message: "Thanks. Your email address is confirmed." }));
   });
 }

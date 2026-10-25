@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import type { Redis } from "ioredis";
 import { EmailVerification, LogMailer, type Mailer } from "./accounts/email-verification.js";
 import { PasskeyService } from "./accounts/passkeys.js";
+import { SecurityEventService } from "./accounts/security-events.js";
 import { SessionService } from "./accounts/sessions.js";
 import { UserService } from "./accounts/users.js";
 import type { Config } from "./config.js";
@@ -22,9 +23,12 @@ import { CodeStore } from "./oauth/codes.js";
 import { ConsentService } from "./oauth/consents.js";
 import { GrantService } from "./oauth/grants.js";
 import { InteractionStore } from "./oauth/interactions.js";
+import { PerkService } from "./oauth/perks.js";
 import { TokenService } from "./oauth/tokens.js";
 import { registerAccountRoutes } from "./routes/account.js";
+import { registerAdminRoutes } from "./routes/admin.js";
 import { registerAuthorizeRoutes } from "./routes/authorize.js";
+import { registerDashboardRoutes } from "./routes/dashboard.js";
 import { registerDiscoveryRoutes } from "./routes/discovery.js";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerInteractionRoutes } from "./routes/interaction.js";
@@ -85,6 +89,8 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
     sessions: new SessionService(db, config.SESSION_TTL_SECONDS),
     // The issuer's host is the WebAuthn relying party ID: passkeys are bound to it.
     passkeys: new PasskeyService(db, redis, { rpID: new URL(config.ISSUER).hostname, origin: new URL(config.ISSUER).origin }),
+    events: new SecurityEventService(db),
+    perks: new PerkService(db),
     sessionCookie: cookieName("kid_session", config.secureCookies),
     emailVerification: new EmailVerification(redis, mailer, config.ISSUER),
     clients: new ClientService(db),
@@ -168,6 +174,8 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
   registerLogoutRoutes(app, ctx);
   registerPasskeyRoutes(app, ctx);
   registerAccountRoutes(app, ctx);
+  registerDashboardRoutes(app, ctx);
+  registerAdminRoutes(app, ctx);
 
   return { app, ctx };
 }

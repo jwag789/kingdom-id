@@ -27,7 +27,7 @@
   --radius: 14px;
   --font-sans: "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-serif: "Newsreader Variable", Newsreader, Georgia, serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* Semantic layer: dark */
   --bg: var(--ink);

@@ -51,7 +51,7 @@ describe("passkeys", () => {
     const [user] = await t.ctx.db.select().from(users).where(eq(users.email, email));
     expect(user!.passwordHash).toBeNull();
     expect(user!.webauthnUserId).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    expect((await browser.get("/account")).body).toContain("No password. You sign in with passkeys only.");
+    expect((await browser.get("/account/keys")).body).toContain("No password. You sign in with passkeys only.");
   });
 
   it("signs in with a discoverable passkey: no username typed", async () => {
@@ -228,8 +228,8 @@ describe("passkeys", () => {
       const csrf = await browser.csrf("/account");
       const options = (await browser.json("/passkeys/register/options", { csrf, mode: "add" })).json();
       const res = await browser.json("/passkeys/register", { csrf, response: authenticator.create(options) });
-      expect(res.json()).toEqual({ redirect: "/account?added=passkey" });
-      expect((await browser.get("/account?added=passkey")).body).toContain("Passkey added");
+      expect(res.json()).toEqual({ redirect: "/account/keys?added=passkey" });
+      expect((await browser.get("/account/keys?added=passkey")).body).toContain("Passkey added");
 
       // The same authenticator is excluded from a second registration.
       const again = (await browser.json("/passkeys/register/options", { csrf, mode: "add" })).json();

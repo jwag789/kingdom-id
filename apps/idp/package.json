@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "seed": "tsx --conditions=development --env-file-if-exists=../../.env src/scripts/seed.ts",
-    "rotate-keys": "tsx --conditions=development --env-file-if-exists=../../.env src/scripts/rotate-keys.ts"
+    "rotate-keys": "tsx --conditions=development --env-file-if-exists=../../.env src/scripts/rotate-keys.ts",
+    "make-admin": "tsx --conditions=development --env-file-if-exists=../../.env src/scripts/make-admin.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

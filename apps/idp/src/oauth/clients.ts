@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import type { FastifyRequest } from "fastify";
 import { randomToken, safeEqual, sha256 } from "../lib/crypto.js";
 import { OAuthError } from "../lib/errors.js";
-import { SUPPORTED_SCOPES } from "./scopes.js";
+import { FIRST_PARTY_ONLY_SCOPES, SUPPORTED_SCOPES } from "./scopes.js";
 
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
@@ -89,7 +89,8 @@ export class ClientService {
       postLogoutRedirectUris: input.postLogoutRedirectUris ?? [],
       firstParty: input.firstParty ?? false,
       requirePkce: input.requirePkce ?? true,
-      allowedScopes: input.allowedScopes ?? [...SUPPORTED_SCOPES],
+      allowedScopes:
+        input.allowedScopes ?? SUPPORTED_SCOPES.filter((s) => input.firstParty || !FIRST_PARTY_ONLY_SCOPES.includes(s)),
       subjectType: input.subjectType ?? "pairwise",
       sectorIdentifier: input.firstParty ? FIRST_PARTY_SECTOR : host,
       idTokenSignedResponseAlg: input.idTokenSignedResponseAlg ?? "RS256",

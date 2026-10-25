@@ -1,6 +1,13 @@
 import type { User } from "@kingdom-id/db";
 
-export const SUPPORTED_SCOPES = ["openid", "profile", "email", "offline_access"] as const;
+export const SUPPORTED_SCOPES = ["openid", "profile", "email", "offline_access", "perks"] as const;
+
+/**
+ * Scopes only first-party Kingdom apps get by default. Perks reveal which
+ * Kingdom apps someone uses, which is exactly the cross-app linkage pairwise
+ * subjects exist to prevent for third parties.
+ */
+export const FIRST_PARTY_ONLY_SCOPES: readonly Scope[] = ["perks"];
 export type Scope = (typeof SUPPORTED_SCOPES)[number];
 
 /** Standard claims released per scope (OIDC Core §5.4), limited to what Kingdom ID stores. */
@@ -9,6 +16,7 @@ export const SCOPE_CLAIMS: Record<Scope, readonly string[]> = {
   profile: ["name", "updated_at"],
   email: ["email", "email_verified"],
   offline_access: [],
+  perks: ["perks"],
 };
 
 export const CLAIMS_SUPPORTED = [
@@ -21,6 +29,7 @@ export const SCOPE_DESCRIPTIONS: Record<Scope, string | null> = {
   profile: "Your name",
   email: "Your email address",
   offline_access: "Stay connected when you're not using it, until you disconnect it",
+  perks: "Perks you've unlocked across Kingdom apps",
 };
 
 /** Splits a scope parameter, dropping duplicates and anything we don't support (RFC 6749 §3.3 lets us narrow). */

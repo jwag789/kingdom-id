@@ -82,7 +82,8 @@ test("a password account adds a passkey from the account page", async ({ page, c
   await addPasskeyAuthenticator(context, page);
   await page.goto("http://localhost:4000/signup");
   await signUpWithPassword(page, "Grace Hopper", `e2e-add-${Date.now()}@example.test`);
-  await expect(page.getByRole("heading", { name: "Hi, Grace Hopper" })).toBeVisible();
+  await expect(page.getByText("Welcome back, Grace.")).toBeVisible();
+  await page.getByRole("link", { name: "Keys" }).click();
   await expect(page.getByText("You sign in with a password.")).toBeVisible();
   await expectAccessible(page);
 
@@ -97,7 +98,7 @@ test("an existing user signs in with a password", async ({ page, browser }) => {
   const setup = await browser.newPage();
   await setup.goto("http://localhost:4000/signup");
   await signUpWithPassword(setup, "Grace Hopper", email);
-  await expect(setup.getByRole("heading", { name: "Hi, Grace Hopper" })).toBeVisible();
+  await expect(setup.getByText("Welcome back, Grace.")).toBeVisible();
   await setup.close();
 
   await page.goto("http://localhost:4001/login");
@@ -165,7 +166,7 @@ test("works without JavaScript: the password path is complete on its own", async
   await page.getByLabel("Email").fill(`e2e-nojs-${Date.now()}@example.test`);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Create account", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Hi, Dorothy Vaughan" })).toBeVisible();
+  await expect(page.getByText("Welcome back, Dorothy.")).toBeVisible();
   await context.close();
 });
 

@@ -156,6 +156,16 @@ export class GrantService {
       );
   }
 
+  /** Revokes every live grant a user gave an app: all its refresh token families and access tokens. */
+  async revokeForUserClient(userId: string, clientId: string, reason: RevocationReason): Promise<number> {
+    const revoked = await this.db
+      .update(grants)
+      .set({ revokedAt: this.now(), revokedReason: reason })
+      .where(and(eq(grants.userId, userId), eq(grants.clientId, clientId), isNull(grants.revokedAt)))
+      .returning({ id: grants.id });
+    return revoked.length;
+  }
+
   private async reuseDetected(grant: Grant): Promise<Rotation> {
     await this.revoke(grant.id, "refresh_token_reuse");
     return { status: "reused", grant };

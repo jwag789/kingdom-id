@@ -29,6 +29,8 @@ export const users = pgTable(
     // WebAuthn user handle: random, opaque, and separate from `id` so
     // authenticators never hold the internal user ID.
     webauthnUserId: text("webauthn_user_id"),
+    // Grants the admin panel (perks). Set from the command line, never the UI.
+    isAdmin: boolean("is_admin").notNull().default(false),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -155,6 +157,8 @@ export const consents = pgTable(
     subject: text("subject").notNull(),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    // Last token issued to this app for this user (code exchange or refresh).
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
   },
   (t) => [
     primaryKey({ columns: [t.userId, t.clientId] }),
@@ -218,6 +222,71 @@ export const refreshTokens = pgTable(
   (t) => [uniqueIndex("refresh_tokens_token_hash_key").on(t.tokenHash), index("refresh_tokens_grant_idx").on(t.grantId)],
 );
 
+export const perkRule = pgEnum("perk_rule", ["connected", "connected_days", "connected_apps", "manual"]);
+
+/**
+ * A perk an app offers. Once unlocked, a perk follows the user to every
+ * first-party Kingdom app through the `perks` claim.
+ *
+ * Rules: `connected` (the user connected the offering app), `connected_days`
+ * (connected for at least `threshold` days), `connected_apps` (connected at
+ * least `threshold` Kingdom apps), `manual` (granted by an admin).
+ */
+export const perks = pgTable(
+  "perks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Stable identifier apps key on, e.g. "cappuccino.early-supporter".
+    slug: text("slug").notNull(),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description").notNull(),
+    rule: perkRule("rule").notNull(),
+    threshold: bigint("threshold", { mode: "number" }),
+    active: boolean("active").notNull().default(true),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("perks_slug_key").on(t.slug), index("perks_client_idx").on(t.clientId)],
+);
+
+/** Perks granted by hand (rule `manual`). */
+export const perkGrants = pgTable(
+  "perk_grants",
+  {
+    perkId: uuid("perk_id")
+      .notNull()
+      .references(() => perks.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.perkId, t.userId] })],
+);
+
+/**
+ * Security-relevant account activity, shown in Watchtower. Written directly
+ * for now; phase 7 moves the write path onto a Redis Stream with detection
+ * rules in front of this table.
+ */
+export const securityEvents = pgTable(
+  "security_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Null when the event can't be tied to an account.
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    clientId: text("client_id"),
+    ip: inet("ip"),
+    userAgent: text("user_agent"),
+    details: jsonb("details").notNull().default(sql`'{}'::jsonb`),
+    createdAt: createdAt(),
+  },
+  (t) => [index("security_events_user_time_idx").on(t.userId, t.createdAt)],
+);
+
 export type User = typeof users.$inferSelect;
 export type Client = typeof clients.$inferSelect;
 export type NewClient = typeof clients.$inferInsert;
@@ -226,4 +295,6 @@ export type Session = typeof sessions.$inferSelect;
 export type Consent = typeof consents.$inferSelect;
 export type Grant = typeof grants.$inferSelect;
 export type Passkey = typeof passkeys.$inferSelect;
+export type Perk = typeof perks.$inferSelect;
+export type SecurityEvent = typeof securityEvents.$inferSelect;
 export type RefreshToken = typeof refreshTokens.$inferSelect;

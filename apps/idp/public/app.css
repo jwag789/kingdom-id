@@ -854,6 +854,643 @@ input[aria-invalid="true"] {
 }
 
 /* ------------------------------------------------------------------ */
+/* Your Kingdom dashboard                                              */
+/* ------------------------------------------------------------------ */
+
+.dash-header {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  color: #fff;
+  background: #060a1a;
+}
+
+.dash-bar,
+.dash-hero,
+.dash-nav {
+  width: 100%;
+  max-width: 68rem;
+  margin: 0 auto;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+@media (min-width: 720px) {
+  .dash-bar,
+  .dash-hero,
+  .dash-nav {
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+}
+
+.dash-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 18px;
+  padding-bottom: 18px;
+}
+
+.dash-header-compact .dash-bar {
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.dash-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: #fff;
+  text-decoration: none;
+}
+
+.dash-brand strong {
+  display: block;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.dash-brand small {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--ink-300);
+}
+
+.dash-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* Phones: the avatar and Sign out are enough; the subtitle and name come back with room. */
+@media (max-width: 479px) {
+  .dash-brand small {
+    display: none;
+  }
+  .dash-bar {
+    gap: 10px;
+  }
+  .dash-user {
+    gap: 8px;
+  }
+  .btn-ghost {
+    padding: 0 12px;
+  }
+}
+
+.dash-user-text {
+  display: none;
+  line-height: 1.25;
+  font-size: 0.875rem;
+}
+
+.dash-user-text span {
+  display: block;
+  color: var(--ink-300);
+}
+
+@media (min-width: 720px) {
+  .dash-user-text {
+    display: block;
+  }
+}
+
+.dash-admin {
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.btn-ghost {
+  min-height: 40px;
+  padding: 0 16px;
+  white-space: nowrap;
+  color: #fff;
+  background: rgb(255 255 255 / 0.06);
+  border-color: rgb(255 255 255 / 0.18);
+}
+
+.btn-ghost:hover {
+  background: rgb(255 255 255 / 0.12);
+}
+
+.dash-hero {
+  padding-top: 12px;
+  padding-bottom: 20px;
+}
+
+.dash-greeting {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-weight: 450;
+  font-size: clamp(1.9rem, 4.5vw, 3rem);
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+}
+
+.dash-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  color: var(--ink-300);
+}
+
+.dash-stats strong {
+  color: #fff;
+}
+
+.dash-nav {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.dash-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 12px 14px 14px;
+  color: var(--ink-300);
+  font-weight: 550;
+  font-size: 0.95rem;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+
+.dash-nav a:hover {
+  color: #fff;
+}
+
+.dash-nav a[aria-current="page"] {
+  color: #fff;
+  border-bottom-color: var(--aqua-400);
+}
+
+.dash-nav .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.dash-main {
+  width: 100%;
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: 32px 16px 16px;
+}
+
+@media (min-width: 720px) {
+  .dash-main {
+    padding: 40px 32px 24px;
+  }
+}
+
+.dash-section-head {
+  margin-bottom: 24px;
+}
+
+.dash-section-head .lede {
+  margin-bottom: 0;
+}
+
+.dash-legal {
+  padding: 8px 16px 32px;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 22px;
+  box-shadow: 0 1px 1px rgb(10 15 36 / 0.03), 0 12px 28px -18px rgb(10 15 36 / 0.25);
+}
+
+.panel + .panel {
+  margin-top: 16px;
+}
+
+/* Grids space their own items. */
+:is(.realms, .perks, .masks, .admin-perks) > .panel {
+  margin-top: 0;
+}
+
+.panel-title {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  font-family: var(--font-sans);
+}
+
+.panel h2,
+.panel h3 {
+  font-family: var(--font-sans);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  overflow-wrap: anywhere;
+}
+
+.btn-small {
+  min-height: 38px;
+  padding: 0 14px;
+  font-size: 0.875rem;
+}
+
+.btn-danger {
+  color: var(--error-text);
+  background: transparent;
+  border-color: color-mix(in srgb, var(--error-text) 45%, transparent);
+}
+
+.btn-danger:hover {
+  background: color-mix(in srgb, var(--error-text) 10%, transparent);
+}
+
+.empty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 48px 20px;
+  text-align: center;
+  border: 1px dashed var(--border-strong);
+  border-radius: 20px;
+  color: var(--text-muted);
+}
+
+.empty .icon {
+  width: 40px;
+  height: 40px;
+  color: var(--accent-text);
+}
+
+.empty h2 {
+  margin: 6px 0 0;
+  font-size: 1.15rem;
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+.empty p {
+  margin: 0;
+  max-width: 32rem;
+}
+
+/* Realms */
+
+.realms,
+.perks,
+.masks,
+.admin-perks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+}
+
+@media (min-width: 860px) {
+  .realms,
+  .perks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.realm {
+  display: flex;
+  flex-direction: column;
+}
+
+.realm-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.realm-title {
+  min-width: 0;
+}
+
+.realm-title h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.realm-title p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.realm-used {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.realm-used .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.realm .subhead {
+  margin-top: 18px;
+}
+
+.claims {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.claims div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--surface-raised);
+  font-size: 0.9rem;
+}
+
+.claims dt {
+  color: var(--text-muted);
+}
+
+.claims dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.realm-actions {
+  margin-top: auto;
+  padding-top: 18px;
+}
+
+/* Treasury */
+
+.perk {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.perk > .icon {
+  width: 42px;
+  height: 42px;
+  padding: 10px;
+  border-radius: 13px;
+  color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.perk-unlocked {
+  border-color: color-mix(in srgb, var(--iris-600) 40%, var(--border));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--iris-600) 10%, transparent), transparent 60%),
+    var(--surface);
+}
+
+.perk-unlocked > .icon {
+  color: #fff;
+  background: linear-gradient(135deg, var(--brand-500), var(--iris-600));
+}
+
+.perk h2,
+.perk h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.perk p {
+  margin: 4px 0 0;
+}
+
+.perk-from {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.perks-locked .perk > .icon {
+  color: var(--text-muted);
+  background: var(--surface-raised);
+}
+
+/* Masks */
+
+.panel-callout {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  border-color: color-mix(in srgb, var(--aqua-400) 35%, var(--border));
+}
+
+.panel-callout > .icon {
+  width: 28px;
+  height: 28px;
+  color: var(--accent-text);
+}
+
+.panel-callout h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.panel-callout p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+}
+
+.mask {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.mask-body h2 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+
+.mask-body p {
+  margin: 2px 0 0;
+  font-size: 0.9rem;
+}
+
+.mask-label {
+  color: var(--text-muted);
+}
+
+.mask-none,
+.mask-placeholder {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.mask-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (min-width: 720px) {
+  .mask {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+  }
+  .mask-actions {
+    grid-column: auto;
+  }
+}
+
+/* Watchtower */
+
+.timeline-day + .timeline-day {
+  margin-top: 8px;
+}
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.event {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.event > .icon {
+  width: 36px;
+  height: 36px;
+  padding: 8px;
+  border-radius: 11px;
+  color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.event-alert {
+  border-color: color-mix(in srgb, var(--error-text) 45%, var(--border));
+}
+
+.event-alert > .icon {
+  color: var(--error-text);
+  background: color-mix(in srgb, var(--error-text) 10%, transparent);
+}
+
+.event-title {
+  margin: 0;
+  font-weight: 550;
+}
+
+.event-meta {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* Admin */
+
+select {
+  width: 100%;
+  min-height: 50px;
+  padding: 0 14px;
+  font: inherit;
+  color: var(--text);
+  background: var(--input-bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+}
+
+select option {
+  color: var(--ink);
+}
+
+.admin-perk-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.admin-perk h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.admin-perk p {
+  margin: 6px 0 0;
+}
+
+.admin-perk-off {
+  opacity: 0.75;
+}
+
+.admin-perk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.admin-grant {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.inline-field {
+  display: flex;
+  gap: 8px;
+}
+
+.inline-field .btn {
+  margin-top: 0;
+}
+
+.admin-create {
+  margin-top: 24px;
+  max-width: 36rem;
+}
+
+/* ------------------------------------------------------------------ */
 /* Motion preferences                                                  */
 /* ------------------------------------------------------------------ */
 

@@ -21,7 +21,7 @@ export const uiFor = (ctx: Context, req: FastifyRequest): Ui => ({
   relay: ctx.config.EMAIL_RELAY_ENABLED,
 });
 
-function Document({ title, ui, children }: { title: string; ui: Ui; children: ComponentChildren }) {
+export function Document({ title, ui, children }: { title: string; ui: Ui; children: ComponentChildren }) {
   return (
     <html lang="en">
       <head>

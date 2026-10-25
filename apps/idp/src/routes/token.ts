@@ -57,6 +57,7 @@ async function authorizationCode(ctx: Context, req: FastifyRequest, client: Clie
     // have been the attacker's. Revoke everything it produced (RFC 6749 §4.1.2).
     const revoked = await ctx.grants.revokeByCodeHash(codeHash);
     req.log.warn({ event: "code_replay", clientId: redemption.clientId, grantId: revoked?.id }, "authorization code replay");
+    if (revoked) await ctx.events.record(req, { type: "code_replay", userId: revoked.userId, clientId: revoked.clientId });
     throw invalidGrant;
   }
   if (redemption.status === "invalid") throw invalidGrant;
@@ -80,6 +81,7 @@ async function authorizationCode(ctx: Context, req: FastifyRequest, client: Clie
   if (!user) throw invalidGrant;
   const grant = await ctx.grants.create(issued, codeHash);
   const refresh = grant.offline ? await ctx.grants.issueRefreshToken(grant) : undefined;
+  await ctx.consents.touch(user.id, client.id);
   return ctx.tokens.issue(client, grant, {
     scopes: grant.scopes,
     ...(issued.nonce !== undefined ? { nonce: issued.nonce } : {}),
@@ -104,6 +106,7 @@ async function refreshToken(ctx: Context, req: FastifyRequest, client: Client, b
       { event: "refresh_token_reuse", clientId: client.id, grantId: rotation.grant.id, userId: rotation.grant.userId },
       "refresh token reuse: family revoked",
     );
+    await ctx.events.record(req, { type: "refresh_token_reuse", userId: rotation.grant.userId, clientId: client.id });
     throw invalidGrant;
   }
   if (rotation.status === "invalid") throw invalidGrant;
@@ -113,5 +116,6 @@ async function refreshToken(ctx: Context, req: FastifyRequest, client: Client, b
   // The new refresh token keeps the grant's full scope (RFC 6749 §6); only
   // this access token is narrowed.
   const scopes = requested ? rotation.grant.scopes.filter((s) => requested.includes(s)) : rotation.grant.scopes;
+  await ctx.consents.touch(user.id, client.id);
   return ctx.tokens.issue(client, rotation.grant, { scopes, refreshToken: rotation.refreshToken });
 }

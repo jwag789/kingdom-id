@@ -59,7 +59,7 @@ app.get("/login", async (_req, reply) => {
   reply.setCookie("demo_txn", id, { ...cookieOpts, maxAge: 600 });
   const url = oidc.buildAuthorizationUrl(config, {
     redirect_uri: redirectUri,
-    scope: "openid profile email",
+    scope: "openid profile email perks",
     code_challenge: await oidc.calculatePKCECodeChallenge(verifier),
     code_challenge_method: "S256",
     state: txn.state,

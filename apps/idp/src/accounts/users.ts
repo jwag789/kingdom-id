@@ -43,8 +43,12 @@ export class UserService {
   }
 
   async emailExists(email: string): Promise<boolean> {
+    return !!(await this.idForEmail(email));
+  }
+
+  async idForEmail(email: string): Promise<string | undefined> {
     const [row] = await this.db.select({ id: users.id }).from(users).where(eq(users.email, normalizeEmail(email)));
-    return !!row;
+    return row?.id;
   }
 
   async findById(id: string): Promise<User | undefined> {

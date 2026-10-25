@@ -1,4 +1,3 @@
-import type { Passkey } from "@kingdom-id/db";
 import { type Scope } from "../oauth/scopes.js";
 import { Icon, type IconName } from "./icons.js";
 import { AuthLayout, CoBrand, FieldError, type AppIdentity, type Ui } from "./layout.js";
@@ -178,6 +177,9 @@ export function ConsentPage(props: {
         : { icon: "mail", title: "Your email address", detail: user.email },
     );
   }
+  if (props.scopes.includes("perks")) {
+    items.push({ icon: "crown", title: "Your perks", detail: "What you've unlocked across Kingdom apps." });
+  }
   if (props.scopes.includes("offline_access")) {
     items.push({ icon: "refresh", title: "Stay connected", detail: "Access while you're away, until you disconnect it." });
   }
@@ -270,88 +272,6 @@ export function LogoutPage(props: {
             Stay signed in
           </button>
           <button type="submit" name="decision" value="logout" class="btn btn-primary">
-            Sign out
-          </button>
-        </form>
-      </section>
-    </AuthLayout>
-  );
-}
-
-const date = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-
-export function AccountPage(props: {
-  ui: Ui;
-  csrf: string;
-  user: { name: string; email: string; emailVerified: boolean; hasPassword: boolean };
-  passkeys: Passkey[];
-  notice?: string | undefined;
-  error?: string | undefined;
-}) {
-  const { user } = props;
-  const canRemove = props.passkeys.length > 1 || user.hasPassword;
-  return (
-    <AuthLayout title="Your account" ui={props.ui}>
-      <section class="card card-wide" aria-labelledby="title" data-csrf={props.csrf}>
-        <CoBrand />
-        <h1 id="title">Hi, {user.name}</h1>
-        <p class="lede">
-          {user.email} · {user.emailVerified ? "verified" : "not verified yet"}
-        </p>
-        {props.notice && (
-          <p class="notice" role="status">
-            <Icon name="check" />
-            <span>{props.notice}</span>
-          </p>
-        )}
-        {props.error && (
-          <p class="alert" role="alert">
-            {props.error}
-          </p>
-        )}
-        <PasskeyError />
-
-        <h2 class="subhead">Passkeys</h2>
-        {props.passkeys.length === 0 ? (
-          <p class="hint">
-            You sign in with a password. Add a passkey to sign in with your face, fingerprint or device PIN instead.
-          </p>
-        ) : (
-          <ul class="passkeys">
-            {props.passkeys.map((p) => (
-              <li>
-                <Icon name="passkey" />
-                <span class="passkey-text">
-                  <strong>{p.name}</strong>
-                  <span>
-                    Added {date(p.createdAt)}
-                    {p.lastUsedAt ? ` · last used ${date(p.lastUsedAt)}` : ""}
-                    {p.backedUp ? " · synced" : ""}
-                  </span>
-                </span>
-                {canRemove && (
-                  <form method="post" action={`/account/passkeys/${p.id}/delete`}>
-                    <input type="hidden" name="csrf" value={props.csrf} />
-                    <button type="submit" class="btn-icon" aria-label={`Remove ${p.name}, added ${date(p.createdAt)}`}>
-                      <Icon name="trash" />
-                    </button>
-                  </form>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-        <button type="button" class="btn btn-secondary" data-passkey="add" hidden>
-          <Icon name="passkey" />
-          Add a passkey
-        </button>
-
-        <h2 class="subhead">Password</h2>
-        <p class="hint">{user.hasPassword ? "A password is set as a fallback." : "No password. You sign in with passkeys only."}</p>
-
-        <form method="post" action="/logout" class="signout">
-          <input type="hidden" name="csrf" value={props.csrf} />
-          <button type="submit" class="btn btn-secondary">
             Sign out
           </button>
         </form>

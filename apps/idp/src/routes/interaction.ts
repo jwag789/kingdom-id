@@ -118,6 +118,12 @@ export function registerInteractionRoutes(app: FastifyInstance, ctx: Context) {
     }
     const sub = subjectFor(ctx.serverSecret, client, authenticated.user.id);
     await ctx.consents.grant(authenticated.user.id, client.id, sub, interaction.request.scopes);
+    await ctx.events.record(req, {
+      type: "app_connected",
+      userId: authenticated.user.id,
+      clientId: client.id,
+      details: { scopes: interaction.request.scopes },
+    });
     return finish(ctx, req, reply, loaded, authenticated);
   });
 }

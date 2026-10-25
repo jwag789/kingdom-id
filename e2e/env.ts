@@ -13,6 +13,8 @@ export const env = {
   KEY_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString("base64"),
   SERVER_SECRET: Buffer.alloc(32, 2).toString("base64"),
   LOG_LEVEL: "warn",
+  // Every test signs up from 127.0.0.1; production limits would stop the suite halfway.
+  RATE_LIMIT_MULTIPLIER: "50",
   DEMO_CLIENT_ID: "kingdom-demo",
   DEMO_CLIENT_SECRET: "e2e-demo-secret-not-for-production-use-0000",
   DEMO_PORT: "4001",

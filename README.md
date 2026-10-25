@@ -7,7 +7,7 @@ Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'
 - **Private by default with third parties, unified across Kingdom apps.** Third-party apps each see their own pairwise `sub`, so they can't link a user by ID. Kingdom's own apps share one, so perks and the dashboard follow the person. *(Built.)*
 - **Passkey-first sign-in**, with a password as the fallback. *(Built.)*
 - **A private relay email per app**, so the real address never leaves Kingdom. *(Phase 6.)*
-- **One dashboard** listing every connected app, what it received, and a one-click disconnect. *(Phase 5.)*
+- **"Your Kingdom", one dashboard** for every connected app, what each one received, perks that carry across apps, and a security timeline. One click disconnects an app. *(Built.)*
 
 <p align="center">
   <img src="docs/images/sign-in-dark.png" alt="Kingdom ID sign-in: the Kingdom brand story on the left; on the right a card co-branded with the requesting app, with 'Continue with a passkey' as the primary action" width="820">
@@ -28,11 +28,30 @@ Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'
 | 2 | Refresh tokens with rotation and reuse detection, revocation, introspection, logout | ✅ Done |
 | 3 | OpenID Foundation conformance suite in CI | ✅ Done |
 | 4 | Passkeys and the designed sign-in experience | ✅ Done |
-| 5 | "Your Kingdom" dashboard | Planned |
+| 5 | "Your Kingdom" dashboard | ✅ Done |
 | 6 | Email relay via AWS SES | Planned |
 | 7 | Security event pipeline (Redis Streams) | Planned |
 | 8 | `kingdom` CLI, horizontal scaling proof, k6 benchmarks | Planned |
 | 9 | Deployment and the Next.js integration guide | Planned |
+
+## Your Kingdom
+
+<p align="center">
+  <img src="docs/images/dashboard-realms.png" alt="Your Kingdom dashboard, Realms section: a connected app with exactly what it received and a Disconnect button" width="820">
+</p>
+<p align="center">
+  <img src="docs/images/dashboard-treasury-phone.png" alt="Treasury on a phone in light mode: an unlocked perk and two within reach" width="220">
+</p>
+
+| Section | What it does |
+|---|---|
+| **Realms** | Every connected app, the exact claims it received (the ID it knows you by, name, email, perks, offline access), when it was connected and last used. **Disconnect** removes the consent and revokes every grant for that app, so its refresh token families and live access tokens stop working immediately. |
+| **Treasury** | Perks you've unlocked, plus the ones within reach and what's left to unlock them. Apps offer perks; the rules are *connected*, *connected for N days*, *connected N Kingdom apps*, or *granted by hand*. First-party apps receive unlocked perks as the `perks` claim. |
+| **Masks** | Per-app private email addresses. The UI exists now; the addresses and forwarding arrive with the email relay (phase 6). Until then the page says plainly which apps see your real address. |
+| **Watchtower** | A timeline of sign-ins (and failed attempts against your account), new passkeys, connected and disconnected apps, and alerts when Kingdom ID blocks a copied refresh token or a replayed sign-in. |
+| **Keys** | Passkeys (add, remove, see when each was last used) and whether a password is set. |
+
+**Admin** (`/admin`) manages each app's perks: create, pause, delete, and grant manual perks. It needs an account flagged as admin from the command line (`pnpm --filter @kingdom-id/idp make-admin you@example.com`) *and* a session signed in with a passkey.
 
 ## Architecture
 
@@ -96,6 +115,7 @@ pnpm test:e2e    # Playwright through the demo client: passkeys via a virtual au
 - **Integration tests** run the real app against real Postgres and Redis: the full flow, key rotation (including five instances rotating at once), refresh token rotation and reuse detection (including concurrent exchanges), code replay, revocation, introspection, logout, token endpoint attacks, CSRF, cookies, rate limits and headers.
 - **Passkey tests** use a software authenticator that produces real WebAuthn attestations and assertions, so the server's verification runs unmodified: single-use and browser-bound challenges, wrong-origin (phishing) assertions, mismatched user handles, counter rollback, and required user verification.
 - **Browser e2e tests** sign up and back in with a passkey through Chromium's virtual authenticator, check every page against WCAG 2.1 AA in dark and light mode at desktop and phone widths, check there's no horizontal scroll on phones, confirm `prefers-reduced-motion` stops the animation, and confirm the password path works with JavaScript disabled.
+- **Dashboard tests** check that disconnecting an app really kills its refresh families and access tokens while other apps keep working, every perk rule (including backdated consents), that third-party apps can't obtain the `perks` scope, that each user sees only their own Watchtower, and that admin is closed to non-admins and to admins without a passkey session.
 - **An interop test** drives everything with [`openid-client`](https://github.com/panva/openid-client), an independent certified relying-party library: discovery, authorization, token exchange, userinfo, refresh, introspection, revocation and RP-initiated logout. This shows the provider is interoperable, not just consistent with itself.
 
 CI runs lint, typecheck, build, the test suite and the browser e2e on every push.
@@ -166,6 +186,9 @@ _Phase 8 adds a k6 load test of the token endpoint across two instances. Results
 | Session theft from the database | Only SHA-256 hashes of session tokens and client secrets are stored. |
 | Phishing | Passkeys are bound to Kingdom ID's origin by the browser, so a look-alike site can't obtain a usable assertion (tested). Apps can demand this with `acr_values=phr`, which steps a password session up to a passkey. |
 | WebAuthn replay or cross-browser relay | Challenges are random, single-use (`GETDEL`), expire in five minutes, and are bound to the browser that requested them. The returned user handle must match the credential's owner, and a signature counter that goes backwards is rejected. |
+| Admin takeover | Admin is a database flag set only from the command line, and every admin page also requires a passkey session (`acr` = `phr`), so a phished password can't reach it. Admin actions are written to the audit log. |
+| Cross-app linkage through perks | Perks reveal which Kingdom apps someone uses, so the `perks` scope is offered only to first-party apps by default; third parties never receive it. |
+| An app keeps access after being disconnected | Disconnect removes the consent first, then revokes every grant for the app, which kills refresh token families and access tokens (checked via `gid`). UserInfo also requires the consent to exist. |
 | Locking yourself out | The last passkey of a passwordless account can't be removed. |
 | Credential stuffing and brute force | Sliding-window limits per IP and per account at login, per IP at authorize, signup and userinfo, and per IP and per client at the token endpoint. |
 | Account enumeration | Login errors and timing are uniform (argon2 runs against a dummy hash for unknown accounts). Signup does reveal that an email is taken; this is bounded by rate limits, and fully avoiding it requires email-first verification. |
@@ -192,6 +215,10 @@ against the access token (OIDC Core §5.4). ID tokens get passed around as proof
 **Passkey-only accounts are first class.** Signing up with a passkey creates an account with no password at all. The WebAuthn user handle is a random value rather than the internal user ID, so authenticators never hold it.
 
 **Hand-written CSS on the Kingdom Web Builders tokens.** Five screens didn't justify a Tailwind build step in the provider's image. The palette, type (Inter, Newsreader) and motion come straight from the KWB tokens, the fonts are self-hosted so the sign-in page makes no third-party requests, and the brand panel's aurora is transform-only and switched off under `prefers-reduced-motion`.
+
+**Perks are evaluated, not stored.** Except for hand-granted perks, nothing records that a perk was unlocked: the rules are evaluated against the user's connections each time. Pausing a perk, or a user disconnecting an app, takes effect immediately, and there's no unlock state to drift out of sync.
+
+**Watchtower writes directly, for now.** Phase 5 records security events straight into Postgres. Phase 7 puts a Redis Stream and detection rules in front of the same table, so the dashboard won't change.
 
 **No privacy claims ahead of the feature.** The design calls for a note that apps receive a private email mask. That note, and the matching line in the brand story, render only when `EMAIL_RELAY_ENABLED` is on, which phase 6 does.
 

@@ -29,6 +29,13 @@
       "when": 1792926881525,
       "tag": "0003_passkeys",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792928439768,
+      "tag": "0004_dashboard",
+      "breakpoints": true
     }
   ]
 }

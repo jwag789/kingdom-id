@@ -219,7 +219,7 @@ describe("authorization code flow, end to end", () => {
     await browser.submit("/signup", "/signup", { name: "Vera", email, password: PASSWORD });
     const link = new URL(sent.find((m) => m.to === email)!.text.match(/https?:\/\/\S+/)![0]);
     expect((await browser.get(link.pathname + link.search)).statusCode).toBe(200);
-    const account = (await browser.get("/account")).body;
+    const account = (await browser.get("/account/keys")).body;
     expect(account).toContain("verified");
     expect(account).not.toContain("not verified");
     expect((await browser.get(link.pathname + link.search)).statusCode).toBe(400);
