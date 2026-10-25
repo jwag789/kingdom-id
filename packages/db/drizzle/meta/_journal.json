@@ -43,6 +43,13 @@
       "when": 1792929422968,
       "tag": "0005_email_relay",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792930401437,
+      "tag": "0006_security_pipeline",
+      "breakpoints": true
     }
   ]
 }

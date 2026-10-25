@@ -1,6 +1,47 @@
-import type { Client, Perk } from "@kingdom-id/db";
+import type { Alert, Client, Perk } from "@kingdom-id/db";
+import type { ComponentChildren } from "preact";
+import { formatDate, formatTime, relativeTime } from "./format.js";
 import { Icon } from "./icons.js";
 import { Document, FieldError, type Ui } from "./layout.js";
+
+function AdminShell(props: { title: string; section: "perks" | "alerts"; ui: Ui; user: { name: string }; children: ComponentChildren }) {
+  return (
+    <Document title={`${props.title} · Admin`} ui={props.ui}>
+      <a class="skip-link" href="#main">
+        Skip to {props.title}
+      </a>
+      <header class="dash-header dash-header-compact">
+        <div class="dash-bar">
+          <a class="dash-brand" href="/account">
+            <span class="cobrand-mark">
+              <img src="/brand/kingdom-mark-white.png" alt="" width="44" height="24" />
+            </span>
+            <span>
+              <strong>Kingdom ID admin</strong>
+              <small>Signed in as {props.user.name}</small>
+            </span>
+          </a>
+          <a class="dash-admin" href="/account">
+            Back to Your Kingdom
+          </a>
+        </div>
+        <nav class="dash-nav" aria-label="Admin">
+          <a href="/admin" aria-current={props.section === "perks" ? "page" : undefined}>
+            <Icon name="crown" />
+            Perks
+          </a>
+          <a href="/admin/alerts" aria-current={props.section === "alerts" ? "page" : undefined}>
+            <Icon name="tower" />
+            Alerts
+          </a>
+        </nav>
+      </header>
+      <main id="main" class="dash-main">
+        {props.children}
+      </main>
+    </Document>
+  );
+}
 
 const RULES: { value: Perk["rule"]; label: string }[] = [
   { value: "connected", label: "Connected the app" },
@@ -34,27 +75,7 @@ export function AdminPage(props: AdminPageProps) {
   const v = props.values ?? {};
   const e = props.errors ?? {};
   return (
-    <Document title="Perks admin" ui={props.ui}>
-      <a class="skip-link" href="#main">
-        Skip to perks
-      </a>
-      <header class="dash-header dash-header-compact">
-        <div class="dash-bar">
-          <a class="dash-brand" href="/account">
-            <span class="cobrand-mark">
-              <img src="/brand/kingdom-mark-white.png" alt="" width="44" height="24" />
-            </span>
-            <span>
-              <strong>Kingdom ID admin</strong>
-              <small>Signed in as {props.user.name}</small>
-            </span>
-          </a>
-          <a class="dash-admin" href="/account">
-            Back to Your Kingdom
-          </a>
-        </div>
-      </header>
-      <main id="main" class="dash-main">
+    <AdminShell title="Perks" section="perks" ui={props.ui} user={props.user}>
         <div class="dash-section-head">
           <h1>Perks</h1>
           <p class="lede">
@@ -163,7 +184,109 @@ export function AdminPage(props: AdminPageProps) {
             Create perk
           </button>
         </form>
-      </main>
-    </Document>
+    </AdminShell>
+  );
+}
+
+const RULE_NAMES: Record<string, string> = {
+  failed_login_burst: "Failed sign-in burst",
+  credential_stuffing: "Credential stuffing",
+  refresh_token_reuse: "Refresh token reuse",
+  code_replay: "Authorization code replay",
+  relay_spoof: "Relay spoofing",
+  new_network: "New network",
+  new_country: "New country",
+};
+
+export interface AlertsPageProps {
+  ui: Ui;
+  csrf: string;
+  user: { name: string };
+  filter: "open" | "all";
+  alerts: { alert: Alert; email: string | null }[];
+  health: { length: number; pending: number; lag: number; deadLetters: number };
+  notice?: string | undefined;
+}
+
+export function AlertsPage(props: AlertsPageProps) {
+  const { health } = props;
+  return (
+    <AdminShell title="Alerts" section="alerts" ui={props.ui} user={props.user}>
+      <div class="dash-section-head">
+        <h1>Alerts</h1>
+        <p class="lede">What the detection rules raised from the security event stream.</p>
+      </div>
+      {props.notice && (
+        <p class="notice" role="status">
+          <Icon name="check" />
+          <span>{props.notice}</span>
+        </p>
+      )}
+      <dl class="pipeline-health" aria-label="Event pipeline health">
+        <div>
+          <dt>Waiting</dt>
+          <dd>{health.lag}</dd>
+        </div>
+        <div>
+          <dt>In flight</dt>
+          <dd>{health.pending}</dd>
+        </div>
+        <div class={health.deadLetters > 0 ? "health-bad" : undefined}>
+          <dt>Dead letters</dt>
+          <dd>{health.deadLetters}</dd>
+        </div>
+        <div>
+          <dt>On stream</dt>
+          <dd>{health.length}</dd>
+        </div>
+      </dl>
+      <p class="filter-links">
+        Show{" "}
+        <a href="/admin/alerts" aria-current={props.filter === "open" ? "page" : undefined}>
+          open
+        </a>{" "}
+        ·{" "}
+        <a href="/admin/alerts?filter=all" aria-current={props.filter === "all" ? "page" : undefined}>
+          all
+        </a>
+      </p>
+      {props.alerts.length === 0 ? (
+        <div class="empty">
+          <Icon name="tower" />
+          <h2>{props.filter === "open" ? "No open alerts" : "No alerts yet"}</h2>
+          <p>Rules watch for failed sign-in bursts, credential stuffing, token reuse and sign-ins from new places.</p>
+        </div>
+      ) : (
+        <ol class="admin-alerts">
+          {props.alerts.map(({ alert, email }) => (
+            <li class={`panel admin-alert severity-${alert.severity}`}>
+              <div class="admin-alert-head">
+                <span class={`severity severity-${alert.severity}`}>{alert.severity}</span>
+                <strong>{RULE_NAMES[alert.rule] ?? alert.rule}</strong>
+                <time datetime={alert.createdAt.toISOString()} title={`${formatDate(alert.createdAt)} ${formatTime(alert.createdAt)}`}>
+                  {relativeTime(alert.createdAt)}
+                </time>
+              </div>
+              <p>{alert.summary}</p>
+              <p class="hint">
+                {email ? `Account ${email}` : "No single account"}
+                {alert.ip ? ` · IP ${alert.ip}` : ""}
+                {alert.clientId ? ` · app ${alert.clientId}` : ""}
+              </p>
+              {alert.acknowledgedAt ? (
+                <p class="hint">Acknowledged {relativeTime(alert.acknowledgedAt)}</p>
+              ) : (
+                <form method="post" action={`/admin/alerts/${alert.id}/ack`}>
+                  <input type="hidden" name="csrf" value={props.csrf} />
+                  <button type="submit" class="btn btn-secondary btn-small" aria-label={`Acknowledge ${RULE_NAMES[alert.rule] ?? alert.rule} alert from ${relativeTime(alert.createdAt)}`}>
+                    Acknowledge
+                  </button>
+                </form>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+    </AdminShell>
   );
 }

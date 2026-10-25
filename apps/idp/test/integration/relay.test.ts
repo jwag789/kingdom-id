@@ -175,6 +175,7 @@ describe("email relay", () => {
       // Someone else, and a forgery of the owner's address that fails SPF, DKIM and DMARC.
       expect(await deliver(email({ from: "mallory@evil.test", to: alias }), [alias])).toHaveLength(0);
       expect(await deliver(email({ from: user.email, to: alias }), [alias], { spf: "FAIL", dkim: "FAIL", dmarc: "FAIL" })).toHaveLength(0);
+      await t.ctx.eventStream.drain();
 
       const events = await t.ctx.db.select().from(securityEvents).where(and(eq(securityEvents.userId, user.id), eq(securityEvents.type, "relay_spoof_blocked")));
       expect(events).toHaveLength(2);
@@ -271,6 +272,7 @@ describe("email relay", () => {
 
       await flow.browser.submit("/account/masks", `/account/masks/${mask.id}/delete`, {});
       expect((await t.ctx.db.select().from(masks).where(eq(masks.id, mask.id)))[0]!.status).toBe("deleted");
+      await t.ctx.eventStream.drain();
       const tower = (await flow.browser.get("/account/watchtower")).body;
       expect(tower).toContain("Paused forwarding");
       expect(tower).toContain("Deleted");

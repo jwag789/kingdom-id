@@ -25,6 +25,8 @@ export function testConfig(overrides: Record<string, string> = {}): Config {
     KEY_ENCRYPTION_KEY: TEST_KEK,
     SERVER_SECRET: TEST_SECRET,
     LOG_LEVEL: "silent",
+    // Each test app gets its own stream, so parallel test files never consume each other's events.
+    SECURITY_STREAM: `security-events-test-${randomUUID()}`,
     ...overrides,
   });
 }
@@ -80,9 +82,15 @@ export const PASSWORD = "correct horse battery staple";
  */
 export class Browser {
   readonly cookies = new Map<string, string>();
-  readonly ip = `10.${rand()}.${rand()}.${rand()}`;
+  readonly ip: string;
 
-  constructor(private readonly app: FastifyInstance) {}
+  constructor(
+    private readonly app: FastifyInstance,
+    ip?: string,
+    private readonly extraHeaders: Record<string, string> = {},
+  ) {
+    this.ip = ip ?? `10.${rand()}.${rand()}.${rand()}`;
+  }
 
   get(url: string, headers: Record<string, string> = {}) {
     return this.send("GET", url, undefined, headers);
@@ -117,7 +125,7 @@ export class Browser {
       method,
       url,
       remoteAddress: this.ip,
-      headers: { ...(cookie ? { cookie } : {}), ...headers },
+      headers: { ...this.extraHeaders, ...(cookie ? { cookie } : {}), ...headers },
       ...(payload !== undefined ? { payload } : {}),
     });
     for (const c of res.cookies as { name: string; value: string; maxAge?: number }[]) {

@@ -1,4 +1,4 @@
-import type { Client, Consent, Mask, Passkey, SecurityEvent } from "@kingdom-id/db";
+import type { Alert, Client, Consent, Mask, Passkey, SecurityEvent } from "@kingdom-id/db";
 import type { ComponentChildren } from "preact";
 import type { SecurityEventType } from "../accounts/security-events.js";
 import type { UnlockedPerk } from "../oauth/perks.js";
@@ -412,24 +412,64 @@ interface EventRow {
   clientName: string | null;
 }
 
-export function WatchtowerPage(props: ShellProps & { events: EventRow[] }) {
-  const days = new Map<string, EventRow[]>();
-  for (const row of props.events) {
-    const day = formatDay(row.event.createdAt);
-    days.set(day, [...(days.get(day) ?? []), row]);
+/**
+ * Alerts members see about their own account. Token abuse and relay spoofing
+ * already appear as events, so only the rules with no event of their own
+ * are shown here.
+ */
+type UserAlert = Alert & { details: Record<string, unknown> };
+
+const ALERT_COPY: Record<string, (a: UserAlert) => string> = {
+  new_network: (a) => `Signed in from a network you haven't used before (${String(a.details.network ?? "unknown")})`,
+  new_country: (a) => `Signed in from a new country (${String(a.details.country ?? "unknown")})`,
+  failed_login_burst: (a) => `${String(a.details.attempts ?? "Several")} wrong passwords were tried on your account in a few minutes`,
+};
+
+type TimelineItem =
+  | { kind: "event"; at: Date; row: EventRow }
+  | { kind: "alert"; at: Date; alert: UserAlert; title: string };
+
+export function WatchtowerPage(props: ShellProps & { events: EventRow[]; alerts: UserAlert[] }) {
+  const items: TimelineItem[] = [
+    ...props.events.map((row) => ({ kind: "event" as const, at: row.event.createdAt, row })),
+    ...props.alerts
+      .filter((a) => ALERT_COPY[a.rule])
+      .map((alert) => ({ kind: "alert" as const, at: alert.createdAt, alert, title: ALERT_COPY[alert.rule]!(alert) })),
+  ].sort((a, b) => b.at.getTime() - a.at.getTime());
+
+  const days = new Map<string, TimelineItem[]>();
+  for (const item of items) {
+    const day = formatDay(item.at);
+    days.set(day, [...(days.get(day) ?? []), item]);
   }
   return (
     <Shell {...props} section="watchtower">
-      {props.events.length === 0 ? (
+      {items.length === 0 ? (
         <Empty icon="tower" title="All quiet">
           Sign-ins, new passkeys and connected apps will show up here.
         </Empty>
       ) : (
-        [...days].map(([day, rows]) => (
+        [...days].map(([day, dayItems]) => (
           <section class="timeline-day" aria-label={day}>
             <h2 class="subhead">{day}</h2>
             <ol class="timeline">
-              {rows.map((row) => {
+              {dayItems.map((item) => {
+                if (item.kind === "alert") {
+                  return (
+                    <li class="event event-alert">
+                      <Icon name="alert" />
+                      <div>
+                        <p class="event-title">{item.title}</p>
+                        <p class="event-meta">
+                          <time datetime={item.at.toISOString()}>{formatTime(item.at)}</time>
+                          {item.alert.ip ? ` · ${item.alert.ip}` : ""}
+                          {" · "}Not you? Add a passkey and remove any you don't recognize under Keys.
+                        </p>
+                      </div>
+                    </li>
+                  );
+                }
+                const { row } = item;
                 const copy = EVENT_COPY[row.event.type as SecurityEventType] ?? { icon: "clock" as const, title: () => row.event.type };
                 return (
                   <li class={copy.alert ? "event event-alert" : "event"}>

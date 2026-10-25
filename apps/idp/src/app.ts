@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import type { Redis } from "ioredis";
 import { EmailVerification, LogMailer, type Mailer } from "./accounts/email-verification.js";
 import { PasskeyService } from "./accounts/passkeys.js";
-import { SecurityEventService } from "./accounts/security-events.js";
+import { SecurityEventService, persistEvent } from "./accounts/security-events.js";
 import { SessionService } from "./accounts/sessions.js";
 import { UserService } from "./accounts/users.js";
 import type { Config } from "./config.js";
@@ -24,6 +24,9 @@ import { ConsentService } from "./oauth/consents.js";
 import { GrantService } from "./oauth/grants.js";
 import { InteractionStore } from "./oauth/interactions.js";
 import { RelayService } from "./relay/service.js";
+import { AlertService } from "./security/pipeline/alerts.js";
+import { DetectionRules } from "./security/pipeline/rules.js";
+import { EventStream } from "./security/pipeline/stream.js";
 import { httpsCertFetcher, s3MessageFetcher } from "./relay/sns.js";
 import { MemoryTransport, type RelayTransport, SesTransport } from "./relay/transport.js";
 import { PerkService } from "./oauth/perks.js";
@@ -89,7 +92,18 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
     (config.RELAY_TRANSPORT === "ses"
       ? new SesTransport(config.AWS_REGION!, config.RELAY_SES_CONFIGURATION_SET)
       : new MemoryTransport((msg, data) => app.log.info(data, msg)));
-  const events = new SecurityEventService(db);
+  const rules = new DetectionRules(db, redis);
+  const eventStream = new EventStream(
+    redis,
+    config.SECURITY_STREAM,
+    config.SECURITY_STREAM_MAXLEN,
+    async (event) => {
+      await persistEvent(db, event);
+      await rules.evaluate(event);
+    },
+    app.log,
+  );
+  const events = new SecurityEventService(db, eventStream, config.TRUST_PROXY);
   const mailer = deps.mailer ?? new LogMailer((msg, data) => app.log.info(data, msg));
 
   const ctx: Context = {
@@ -104,6 +118,8 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
     passkeys: new PasskeyService(db, redis, { rpID: new URL(config.ISSUER).hostname, origin: new URL(config.ISSUER).origin }),
     events,
     perks: new PerkService(db),
+    eventStream,
+    alerts: new AlertService(db),
     relay: new RelayService(db, redis, relayTransport, {
       domain: config.relayDomain,
       onSpoof: ({ userId, claimedFrom }) =>

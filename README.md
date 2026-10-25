@@ -30,7 +30,7 @@ Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'
 | 4 | Passkeys and the designed sign-in experience | ✅ Done |
 | 5 | "Your Kingdom" dashboard | ✅ Done |
 | 6 | Email relay via AWS SES | ✅ Done |
-| 7 | Security event pipeline (Redis Streams) | Planned |
+| 7 | Security event pipeline (Redis Streams) | ✅ Done |
 | 8 | `kingdom` CLI, horizontal scaling proof, k6 benchmarks | Planned |
 | 9 | Deployment and the Next.js integration guide | Planned |
 
@@ -53,6 +53,24 @@ Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'
 
 **Admin** (`/admin`) manages each app's perks: create, pause, delete, and grant manual perks. It needs an account flagged as admin from the command line (`pnpm --filter @kingdom-id/idp make-admin you@example.com`) *and* a session signed in with a passkey.
 
+## Security event pipeline
+
+Every security-relevant action (sign-ins and failures, new passkeys, connected and disconnected apps, token reuse, relay spoofing) is published to a **Redis Stream** at the moment it happens. The request never waits on Postgres or on detection. Every API instance also runs a consumer in one **consumer group**, so each event is handled by exactly one instance. That instance persists it and runs the detection rules.
+
+| Rule | Fires when | Severity | Seen by |
+|---|---|---|---|
+| Failed sign-in burst | 5 failed sign-ins on one account within 10 minutes | high | the member (Watchtower) and admins |
+| Credential stuffing | 20 failed sign-ins from one IP within 10 minutes, across any accounts | critical | admins |
+| Refresh token reuse | a spent refresh token is presented again (its family was revoked) | critical | the member and admins |
+| Authorization code replay | a code is redeemed twice (its tokens were revoked) | high | the member and admins |
+| Relay spoofing | mail impersonating a member tries to leave through their private address | medium | the member and admins |
+| New country | a sign-in from a country this account hasn't signed in from in 180 days (needs a trusted CDN country header) | medium | the member and admins |
+| New network | a sign-in from a network (/24 IPv4, /48 IPv6) this account hasn't used in 180 days | low | the member and admins |
+
+Each alert is raised once per rule and subject per window, so a burst produces one alert, not fifty. Admins see open alerts, acknowledge them, and watch pipeline health (lag, in-flight, dead letters) at `/admin/alerts`.
+
+**Delivery guarantees.** At-least-once: events persist by ID, so a redelivery is harmless. An entry a crashed consumer read but never acknowledged is reclaimed by another instance after 30 seconds (`XAUTOCLAIM`). An event that fails five times is moved to a dead-letter stream, so a poison event can't stall the pipeline. Approximate trimming (`MAXLEN ~`) bounds the stream, because Postgres is the record and the stream is a buffer.
+
 ## Architecture
 
 ```mermaid
@@ -63,29 +81,37 @@ flowchart LR
   end
 
   Browser((Browser))
+  Mail(("Email<br/>senders"))
 
   subgraph IdP["Kingdom ID (stateless Fastify instances)"]
     Authz["/authorize<br/>+ interactions"]
-    Token["/token"]
+    Token["/token, /revoke,<br/>/introspect"]
     UI["/userinfo"]
-    Meta["discovery + JWKS"]
+    Dash["Your Kingdom<br/>+ admin"]
+    Relay["/relay/sns"]
+    Consumer["Event consumer<br/>(persist + detect)"]
     Keys["KeyStore<br/>(rotation scheduler)"]
   end
 
-  PG[("Postgres<br/>users, clients, consents,<br/>sessions, signing keys")]
-  Redis[("Redis<br/>auth codes, interactions,<br/>rate limits, email tokens")]
+  PG[("Postgres<br/>users, clients, grants, passkeys,<br/>masks, events, alerts, keys")]
+  Redis[("Redis<br/>codes, interactions, rate limits,<br/>challenges, security event stream")]
+  SES["Amazon SES<br/>+ SNS, S3"]
 
   Browser -- "front channel" --> Authz
+  Browser --> Dash
   Apps -- "redirect" --> Browser
   Demo -- "back channel" --> Token
   Demo --> UI
-  Demo --> Meta
-  Authz --> PG
-  Authz --> Redis
-  Token --> Redis
-  Token --> Keys
+  Authz --> PG & Redis
+  Token --> Redis & Keys
   Keys --> PG
   UI --> PG
+  Dash --> PG
+  Mail --> SES -- "signed notification" --> Relay
+  Relay -- "forward / reply" --> SES
+  Authz & Token & Dash & Relay -- "XADD events" --> Redis
+  Redis -- "consumer group" --> Consumer
+  Consumer --> PG
 ```
 
 The API keeps nothing in process memory that matters. Anything durable lives in Postgres and anything short-lived in Redis, so any instance can serve any request. Phase 8 demonstrates this with two instances behind a proxy.
@@ -117,6 +143,7 @@ pnpm test:e2e    # Playwright through the demo client: passkeys via a virtual au
 - **Passkey tests** use a software authenticator that produces real WebAuthn attestations and assertions, so the server's verification runs unmodified: single-use and browser-bound challenges, wrong-origin (phishing) assertions, mismatched user handles, counter rollback, and required user verification.
 - **Browser e2e tests** sign up and back in with a passkey through Chromium's virtual authenticator, check every page against WCAG 2.1 AA in dark and light mode at desktop and phone widths, check there's no horizontal scroll on phones, confirm `prefers-reduced-motion` stops the animation, and confirm the password path works with JavaScript disabled.
 - **Dashboard tests** check that disconnecting an app really kills its refresh families and access tokens while other apps keep working, every perk rule (including backdated consents), that third-party apps can't obtain the `perks` scope, that each user sees only their own Watchtower, and that admin is closed to non-admins and to admins without a passkey session.
+- **Pipeline tests** check that publishing doesn't write until the consumer runs, that redelivery persists once, that three consumers split thirty events with none handled twice, that a crashed consumer's unacknowledged entries are reclaimed, that a poison event is dead-lettered while later events still flow, and every detection rule including de-duplication and the trusted-proxy rule for country headers.
 - **An interop test** drives everything with [`openid-client`](https://github.com/panva/openid-client), an independent certified relying-party library: discovery, authorization, token exchange, userinfo, refresh, introspection, revocation and RP-initiated logout. This shows the provider is interoperable, not just consistent with itself.
 
 CI runs lint, typecheck, build, the test suite and the browser e2e on every push.
@@ -195,6 +222,8 @@ _Phase 8 adds a k6 load test of the token endpoint across two instances. Results
 | The relay used as an open relay or to spoof a member | Only an address's owner can send through it, and only with mail that passes SPF or DKIM without failing DMARC. Spoof attempts are dropped and shown in Watchtower. Unknown and deleted addresses and relay loops are dropped. |
 | Forged inbound mail notifications | `/relay/sns` accepts only messages for the configured topic with a valid SNS signature, verified against a certificate fetched over HTTPS from an Amazon SNS host. Subscription confirmation follows only SNS-hosted URLs. Redelivered notifications are processed once. |
 | Real address leaking through relayed mail | Replies leave from the private address with `To`/`Cc`/`Bcc` and identifying headers rebuilt, and `mailto:` unsubscribe links are stripped. Forwarding waits until the member's own address is verified. |
+| Credential stuffing and account takeover going unnoticed | Detection rules on the event stream raise alerts for failed-login bursts (per account and per IP), sign-ins from new networks or countries, refresh token reuse and code replay. Members see what concerns them in Watchtower; admins see everything. |
+| Spoofed location headers | Country headers from a CDN are read only when `TRUST_PROXY` is on. Otherwise anyone could send one, so they're ignored. |
 | Locking yourself out | The last passkey of a passwordless account can't be removed. |
 | Credential stuffing and brute force | Sliding-window limits per IP and per account at login, per IP at authorize, signup and userinfo, and per IP and per client at the token endpoint. |
 | Account enumeration | Login errors and timing are uniform (argon2 runs against a dummy hash for unknown accounts). Signup does reveal that an email is taken; this is bounded by rate limits, and fully avoiding it requires email-first verification. |
@@ -224,7 +253,9 @@ against the access token (OIDC Core §5.4). ID tokens get passed around as proof
 
 **Perks are evaluated, not stored.** Except for hand-granted perks, nothing records that a perk was unlocked: the rules are evaluated against the user's connections each time. Pausing a perk, or a user disconnecting an app, takes effect immediately, and there's no unlock state to drift out of sync.
 
-**Watchtower writes directly, for now.** Phase 5 records security events straight into Postgres. Phase 7 puts a Redis Stream and detection rules in front of the same table, so the dashboard won't change.
+**Redis Streams for security events, not a queue service.** Redis is already a dependency, and streams give the three properties needed: ordered append, consumer groups that share work across instances, and a pending-entries list for crash recovery. Detection rules query the persisted events in Postgres rather than keeping their own counters, so there's one source of truth and rules can be changed without migrating state.
+
+**"Location" without a GeoIP database.** A sign-in counts as somewhere new when it comes from a network block the account hasn't used, plus a country when a trusted CDN supplies one (CloudFront and Cloudflare both do). Network blocks are a steadier signal than single IPs and need no licensed data. Adding a GeoIP lookup later would only enrich the event at the source.
 
 **The relay rewrites headers, never bodies.** Bodies, MIME parts and attachments pass through byte-for-byte, so nothing the sender wrote is altered or re-encoded. Headers are rebuilt so every message leaves `From` the relay domain and is DKIM-signed for it, which is what DMARC requires of a forwarder. The trade-off is quoted reply text, which the relay leaves alone (see the relay guide's known limits).
 

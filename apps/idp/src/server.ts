@@ -21,11 +21,14 @@ try {
   process.exit(1);
 }
 const stopRotation = startRotationScheduler(ctx.keys, (err) => app.log.error({ err }, "key rotation failed"));
+// Every instance consumes security events; the consumer group splits the work.
+await ctx.eventStream.start();
 
 const shutdown = async (signal: string) => {
   app.log.info({ signal }, "shutting down");
   stopRotation();
   await app.close();
+  await ctx.eventStream.stop();
   await Promise.all([database.close(), redis.quit()]);
   process.exit(0);
 };

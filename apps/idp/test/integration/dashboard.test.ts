@@ -174,6 +174,8 @@ describe("Your Kingdom dashboard", () => {
       await new Browser(t.app).submit("/login", "/login", { email: flow.email, password: "wrong password!!" });
       await new Browser(t.app).submit("/login", "/login", { email: flow.email, password: PASSWORD });
       await flow.browser.submit("/account", `/account/realms/${app.client.id}/disconnect`, {});
+      // Events reach Postgres through the stream consumer.
+      await t.ctx.eventStream.drain();
 
       const id = await userId(flow.email);
       const types = (await t.ctx.db.select({ type: securityEvents.type }).from(securityEvents).where(eq(securityEvents.userId, id))).map((e) => e.type);
@@ -197,6 +199,7 @@ describe("Your Kingdom dashboard", () => {
       const tokens = (await redeem(t.app, { code: flow.code, redirect_uri: flow.redirectUri, code_verifier: flow.verifier }, auth)).json();
       await clientPost(t.app, "/token", { grant_type: "refresh_token", refresh_token: tokens.refresh_token }, auth);
       await clientPost(t.app, "/token", { grant_type: "refresh_token", refresh_token: tokens.refresh_token }, auth);
+      await t.ctx.eventStream.drain();
       const page = (await flow.browser.get("/account/watchtower")).body;
       expect(page).toContain("Blocked a copied token for Reuse App");
       expect(page).toContain("event event-alert");

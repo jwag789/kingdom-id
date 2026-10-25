@@ -1,44 +1,25 @@
 import { type Database, clients, securityEvents } from "@kingdom-id/db";
 import { desc, eq } from "drizzle-orm";
 import type { FastifyRequest } from "fastify";
+import { type SecurityEventEnvelope, type SecurityEventInput, envelope } from "../security/pipeline/events.js";
+import type { EventStream } from "../security/pipeline/stream.js";
 
-export type SecurityEventType =
-  | "sign_in"
-  | "sign_in_failed"
-  | "signed_out"
-  | "account_created"
-  | "email_verified"
-  | "passkey_added"
-  | "passkey_removed"
-  | "app_connected"
-  | "app_disconnected"
-  | "refresh_token_reuse"
-  | "code_replay"
-  | "mask_disabled"
-  | "mask_enabled"
-  | "mask_deleted"
-  | "relay_spoof_blocked";
+export type { SecurityEventInput, SecurityEventType } from "../security/pipeline/events.js";
 
-export interface SecurityEventInput {
-  type: SecurityEventType;
-  userId?: string | undefined;
-  clientId?: string | undefined;
-  details?: Record<string, unknown>;
-}
-
-/** Account activity for Watchtower. Phase 7 puts a Redis Stream and detection rules in front of this. */
+/**
+ * Account activity. Producers call `record`, which only publishes to the
+ * Redis Stream: the request never waits on Postgres or on detection rules.
+ * The stream consumer persists events (`persistEvent`) and runs the rules.
+ */
 export class SecurityEventService {
-  constructor(private readonly db: Database) {}
+  constructor(
+    private readonly db: Database,
+    private readonly stream: EventStream,
+    private readonly trustProxyHeaders: boolean,
+  ) {}
 
   async record(req: FastifyRequest | undefined, event: SecurityEventInput): Promise<void> {
-    await this.db.insert(securityEvents).values({
-      type: event.type,
-      userId: event.userId ?? null,
-      clientId: event.clientId ?? null,
-      ip: req?.ip ?? null,
-      userAgent: req?.headers["user-agent"]?.slice(0, 512) ?? null,
-      details: event.details ?? {},
-    });
+    await this.stream.publish(envelope(req, event, this.trustProxyHeaders));
   }
 
   async listForUser(userId: string, limit = 50) {
@@ -50,4 +31,21 @@ export class SecurityEventService {
       .orderBy(desc(securityEvents.createdAt))
       .limit(limit);
   }
+}
+
+/** Writes one event. Idempotent by event ID, because the stream delivers at least once. */
+export async function persistEvent(db: Database, e: SecurityEventEnvelope): Promise<void> {
+  await db
+    .insert(securityEvents)
+    .values({
+      id: e.id,
+      type: e.type,
+      userId: e.userId ?? null,
+      clientId: e.clientId ?? null,
+      ip: e.ip ?? null,
+      userAgent: e.userAgent ?? null,
+      details: { ...e.details, ...(e.network ? { network: e.network } : {}), ...(e.country ? { country: e.country } : {}) },
+      createdAt: new Date(e.at),
+    })
+    .onConflictDoNothing({ target: securityEvents.id });
 }

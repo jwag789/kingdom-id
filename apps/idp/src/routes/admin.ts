@@ -3,7 +3,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { ACR_PHISHING_RESISTANT, acrFor } from "../accounts/auth-methods.js";
 import type { Context } from "../context.js";
 import { PerkError, perkInput } from "../oauth/perks.js";
-import { AdminPage } from "../views/admin.js";
+import { AdminPage, AlertsPage } from "../views/admin.js";
 import { sendPage, uiFor } from "../views/layout.js";
 import { MessagePage } from "../views/pages.js";
 
@@ -105,6 +105,33 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: Context) {
     await ctx.perks.remove(req.params.id);
     audit(req, user, "perk_deleted", { perkId: req.params.id });
     return reply.redirect(`/admin?done=${encodeURIComponent("Perk deleted.")}`, 303);
+  });
+
+  app.get<{ Querystring: { filter?: string; done?: string } }>("/admin/alerts", async (req, reply) => {
+    const user = await requireAdmin(req, reply);
+    if (!user) return;
+    const filter = req.query.filter === "all" ? "all" : "open";
+    const [alerts, health] = await Promise.all([ctx.alerts.list(filter), ctx.eventStream.health()]);
+    return sendPage(
+      reply,
+      AlertsPage({
+        ui: uiFor(ctx, req),
+        csrf: ctx.csrf.token(req, reply),
+        user: { name: user.name },
+        filter,
+        alerts,
+        health,
+        ...(req.query.done ? { notice: req.query.done.slice(0, 120) } : {}),
+      }),
+    );
+  });
+
+  app.post<{ Params: { id: string } }>("/admin/alerts/:id/ack", async (req, reply) => {
+    ctx.csrf.verify(req);
+    const user = await requireAdmin(req, reply);
+    if (!user) return;
+    if (await ctx.alerts.acknowledge(req.params.id, user.id)) audit(req, user, "alert_acknowledged", { alertId: req.params.id });
+    return reply.redirect(`/admin/alerts?done=${encodeURIComponent("Alert acknowledged.")}`, 303);
   });
 
   app.post<{ Params: { id: string } }>("/admin/perks/:id/grant", async (req, reply) => {

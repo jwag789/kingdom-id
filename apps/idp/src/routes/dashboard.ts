@@ -117,10 +117,14 @@ export function registerDashboardRoutes(app: FastifyInstance, ctx: Context) {
     const user = await requireUser(req, reply);
     if (!user) return;
     const { props } = await shell(req, reply, user);
-    const events = await ctx.events.listForUser(user.id);
+    const [events, alerts] = await Promise.all([ctx.events.listForUser(user.id), ctx.alerts.forUser(user.id)]);
     return sendPage(
       reply,
-      WatchtowerPage({ ...props, events: events.map((e) => ({ ...e, event: { ...e.event, details: e.event.details as Record<string, unknown> } })) }),
+      WatchtowerPage({
+        ...props,
+        events: events.map((e) => ({ ...e, event: { ...e.event, details: e.event.details as Record<string, unknown> } })),
+        alerts: alerts.map((a) => ({ ...a, details: a.details as Record<string, unknown> })),
+      }),
     );
   });
 

@@ -43,6 +43,9 @@ const schema = z.object({
   RELAY_SNS_TOPIC_ARN: z.string().regex(/^arn:aws(-[a-z]+)?:sns:[a-z0-9-]+:\d{12}:[\w-]+$/).optional(),
   RELAY_SES_CONFIGURATION_SET: z.string().optional(),
   AWS_REGION: z.string().optional(),
+  // The Redis Stream security events travel on, and its approximate length cap.
+  SECURITY_STREAM: z.string().regex(/^[\w:.-]+$/).default("security-events"),
+  SECURITY_STREAM_MAXLEN: z.coerce.number().int().positive().default(100_000),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
 
   ACCESS_TOKEN_TTL_SECONDS: duration.default(600),

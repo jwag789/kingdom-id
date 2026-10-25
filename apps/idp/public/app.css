@@ -1514,6 +1514,99 @@ select option {
   margin-top: 0;
 }
 
+.pipeline-health {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin: 0 0 20px;
+}
+
+.pipeline-health div {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.pipeline-health dt {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.pipeline-health dd {
+  margin: 2px 0 0;
+  font-size: 1.5rem;
+  font-weight: 650;
+}
+
+.pipeline-health .health-bad {
+  border-color: color-mix(in srgb, var(--error-text) 50%, var(--border));
+}
+
+.filter-links {
+  color: var(--text-muted);
+}
+
+.filter-links a[aria-current="page"] {
+  font-weight: 650;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.admin-alerts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.admin-alerts > .panel {
+  margin-top: 0;
+}
+
+.admin-alert p {
+  margin: 8px 0 0;
+}
+
+.admin-alert form {
+  margin-top: 12px;
+}
+
+.admin-alert-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-alert-head time {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.severity {
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  background: var(--surface-raised);
+}
+
+.severity-high,
+.severity-critical {
+  color: var(--error-text);
+  background: color-mix(in srgb, var(--error-text) 12%, transparent);
+}
+
+.admin-alert.severity-critical {
+  border-color: color-mix(in srgb, var(--error-text) 55%, var(--border));
+}
+
 .admin-create {
   margin-top: 24px;
   max-width: 36rem;

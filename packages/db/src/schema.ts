@@ -284,7 +284,37 @@ export const securityEvents = pgTable(
     details: jsonb("details").notNull().default(sql`'{}'::jsonb`),
     createdAt: createdAt(),
   },
-  (t) => [index("security_events_user_time_idx").on(t.userId, t.createdAt)],
+  (t) => [
+    index("security_events_user_time_idx").on(t.userId, t.createdAt),
+    // Failed-login bursts are counted per IP across accounts.
+    index("security_events_type_ip_time_idx").on(t.type, t.ip, t.createdAt),
+  ],
+);
+
+export const alertSeverity = pgEnum("alert_severity", ["low", "medium", "high", "critical"]);
+
+/**
+ * What the detection rules concluded from the event stream. Alerts tied to
+ * a user also appear in that user's Watchtower; all appear in the admin view.
+ */
+export const alerts = pgTable(
+  "alerts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    rule: text("rule").notNull(),
+    severity: alertSeverity("severity").notNull(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    ip: inet("ip"),
+    clientId: text("client_id"),
+    summary: text("summary").notNull(),
+    details: jsonb("details").notNull().default(sql`'{}'::jsonb`),
+    // The event that tipped the rule over.
+    eventId: uuid("event_id"),
+    createdAt: createdAt(),
+    acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+    acknowledgedBy: uuid("acknowledged_by").references(() => users.id, { onDelete: "set null" }),
+  },
+  (t) => [index("alerts_user_time_idx").on(t.userId, t.createdAt), index("alerts_open_idx").on(t.createdAt).where(sql`${t.acknowledgedAt} is null`)],
 );
 
 export const maskStatus = pgEnum("mask_status", ["active", "disabled", "deleted"]);
@@ -351,4 +381,5 @@ export type Perk = typeof perks.$inferSelect;
 export type Mask = typeof masks.$inferSelect;
 export type ReverseAlias = typeof reverseAliases.$inferSelect;
 export type SecurityEvent = typeof securityEvents.$inferSelect;
+export type Alert = typeof alerts.$inferSelect;
 export type RefreshToken = typeof refreshTokens.$inferSelect;

@@ -14,6 +14,8 @@ import type { ConsentService } from "./oauth/consents.js";
 import type { GrantService } from "./oauth/grants.js";
 import type { InteractionStore } from "./oauth/interactions.js";
 import type { RelayService } from "./relay/service.js";
+import type { AlertService } from "./security/pipeline/alerts.js";
+import type { EventStream } from "./security/pipeline/stream.js";
 import type { PerkService } from "./oauth/perks.js";
 import type { TokenService } from "./oauth/tokens.js";
 import type { Csrf } from "./security/csrf.js";
@@ -32,6 +34,8 @@ export interface Context {
   events: SecurityEventService;
   perks: PerkService;
   relay: RelayService;
+  eventStream: EventStream;
+  alerts: AlertService;
   sessionCookie: string;
   emailVerification: EmailVerification;
   clients: ClientService;

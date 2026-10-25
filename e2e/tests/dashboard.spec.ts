@@ -67,7 +67,11 @@ test("disconnecting a realm ends the app's access", async ({ page, context }) =>
   await expect(page.getByText("No realms yet")).toBeVisible();
 
   await page.getByRole("navigation", { name: "Your Kingdom" }).getByRole("link", { name: "Watchtower", exact: true }).click();
-  await expect(page.getByText("Disconnected Kingdom Demo")).toBeVisible();
+  // Events arrive through the stream consumer, a moment after the action.
+  await expect(async () => {
+    await page.reload();
+    await expect(page.getByText("Disconnected Kingdom Demo")).toBeVisible({ timeout: 500 });
+  }).toPass({ timeout: 10_000 });
 
   // Signing in to the demo again asks for consent again.
   await page.goto("http://localhost:4001/login");
