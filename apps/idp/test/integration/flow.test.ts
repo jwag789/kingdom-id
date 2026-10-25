@@ -78,7 +78,8 @@ describe("authorization code flow, end to end", () => {
     expect(info.json()).toEqual({
       sub: id.sub,
       name: "Ada Lovelace",
-      email: flow.email,
+      // The app gets its private relay address, never the real one.
+      email: expect.stringMatching(/^[a-z]+-[a-z]+\.[a-z2-9]{6}@relay\.localhost$/),
       email_verified: false,
       updated_at: expect.any(Number),
     });

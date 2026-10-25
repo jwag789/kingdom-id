@@ -12,9 +12,12 @@
     "test": "vitest run",
     "seed": "tsx --conditions=development --env-file-if-exists=../../.env src/scripts/seed.ts",
     "rotate-keys": "tsx --conditions=development --env-file-if-exists=../../.env src/scripts/rotate-keys.ts",
-    "make-admin": "tsx --conditions=development --env-file-if-exists=../../.env src/scripts/make-admin.ts"
+    "make-admin": "tsx --conditions=development --env-file-if-exists=../../.env src/scripts/make-admin.ts",
+    "relay:simulate": "tsx --conditions=development --env-file-if-exists=../../.env src/scripts/relay-simulate.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1149.0",
+    "@aws-sdk/client-sesv2": "3.1149.0",
     "@fastify/cookie": "^11.0.2",
     "@fastify/formbody": "^8.0.2",
     "@fastify/static": "^8.2.0",
@@ -28,6 +31,7 @@
     "fastify": "^5.6.1",
     "ioredis": "^5.8.1",
     "jose": "^6.1.0",
+    "libmime": "5.4.7",
     "preact": "^10.27.2",
     "preact-render-to-string": "^6.6.1",
     "zod": "^4.1.12"

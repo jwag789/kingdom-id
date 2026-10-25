@@ -1,6 +1,7 @@
 import type { User } from "@kingdom-id/db";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { PasskeyError } from "../accounts/passkeys.js";
+import { RelayError } from "../relay/service.js";
 import type { Context } from "../context.js";
 import type { UnlockedPerk } from "../oauth/perks.js";
 import {
@@ -48,7 +49,9 @@ export function registerDashboardRoutes(app: FastifyInstance, ctx: Context) {
     if (!user) return;
     const notice = req.query.disconnected ? `Disconnected ${req.query.disconnected.slice(0, 80)}. Its access ended immediately.` : undefined;
     const { props, realms } = await shell(req, reply, user, notice ? { notice } : {});
-    return sendPage(reply, RealmsPage({ ...props, realms }));
+    const masks = ctx.config.EMAIL_RELAY_ENABLED ? await ctx.relay.listForUser(user.id) : [];
+    const maskFor = new Map(masks.map((m) => [m.mask.clientId, m.mask.address]));
+    return sendPage(reply, RealmsPage({ ...props, realms: realms.map((r) => ({ ...r, maskAddress: maskFor.get(r.client.id) })) }));
   });
 
   app.post<{ Params: { clientId: string } }>("/account/realms/:clientId/disconnect", async (req, reply) => {
@@ -75,12 +78,40 @@ export function registerDashboardRoutes(app: FastifyInstance, ctx: Context) {
     return sendPage(reply, TreasuryPage({ ...props, unlocked: perks, locked }));
   });
 
-  app.get("/account/masks", async (req, reply) => {
+  app.get<{ Querystring: { done?: string } }>("/account/masks", async (req, reply) => {
     const user = await requireUser(req, reply);
     if (!user) return;
-    const { props, realms } = await shell(req, reply, user);
-    return sendPage(reply, MasksPage({ ...props, realms }));
+    const notice = req.query.done ? req.query.done.slice(0, 160) : undefined;
+    const { props, realms } = await shell(req, reply, user, notice ? { notice } : {});
+    const masks = ctx.config.EMAIL_RELAY_ENABLED ? await ctx.relay.listForUser(user.id) : [];
+    const withMask = new Set(masks.map((m) => m.mask.clientId));
+    const withoutEmail = realms.filter((r) => !r.consent.scopes.includes("email") && !withMask.has(r.client.id));
+    return sendPage(reply, MasksPage({ ...props, masks, withoutEmail, emailVerified: user.emailVerified }));
   });
+
+  // Pause, resume or retire a private address.
+  for (const action of ["disable", "enable", "delete"] as const) {
+    app.post<{ Params: { id: string } }>(`/account/masks/:id/${action}`, async (req, reply) => {
+      ctx.csrf.verify(req);
+      const user = await requireUser(req, reply);
+      if (!user) return;
+      let mask;
+      try {
+        mask = action === "delete" ? await ctx.relay.remove(user.id, req.params.id) : await ctx.relay.setForwarding(user.id, req.params.id, action === "enable");
+      } catch (err) {
+        if (err instanceof RelayError) return reply.redirect(`/account/masks?done=${encodeURIComponent(err.message)}`, 303);
+        throw err;
+      }
+      await ctx.events.record(req, { type: `mask_${action}d` as "mask_disabled" | "mask_enabled" | "mask_deleted", userId: user.id, clientId: mask.clientId });
+      const done =
+        action === "delete"
+          ? `Deleted ${mask.address}. Mail to it is dropped from now on.`
+          : action === "disable"
+            ? `Paused ${mask.address}.`
+            : `Resumed ${mask.address}.`;
+      return reply.redirect(`/account/masks?done=${encodeURIComponent(done)}`, 303);
+    });
+  }
 
   app.get("/account/watchtower", async (req, reply) => {
     const user = await requireUser(req, reply);

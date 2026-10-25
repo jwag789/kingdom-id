@@ -84,7 +84,9 @@ describe("interop with openid-client", () => {
     expect(claims.iss).toBe(issuer);
 
     const userinfo = await oidc.fetchUserInfo(config, tokens.access_token, claims.sub);
-    expect(userinfo).toMatchObject({ sub: claims.sub, email, name: "Interop" });
+    expect(userinfo).toMatchObject({ sub: claims.sub, name: "Interop" });
+    expect(userinfo.email).toMatch(/@relay\.localhost$/);
+    expect(userinfo.email).not.toBe(email);
 
     // Token lifecycle: refresh (with rotation), introspection, revocation.
     const refreshed = await oidc.refreshTokenGrant(config, tokens.refresh_token!);

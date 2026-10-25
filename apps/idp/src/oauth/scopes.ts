@@ -38,14 +38,19 @@ export function parseScope(raw: string | undefined, allowed: readonly string[]):
   return SUPPORTED_SCOPES.filter((s) => requested.has(s) && allowed.includes(s));
 }
 
-export function userClaims(user: User, scopes: readonly string[]): Record<string, unknown> {
+/**
+ * Claims for the granted scopes. `emailAddress` replaces the real address
+ * with the app's private relay address; `email_verified` still describes the
+ * real one, because that's where the relay delivers.
+ */
+export function userClaims(user: User, scopes: readonly string[], emailAddress = user.email): Record<string, unknown> {
   const claims: Record<string, unknown> = {};
   if (scopes.includes("profile")) {
     claims.name = user.name;
     claims.updated_at = Math.floor(user.updatedAt.getTime() / 1000);
   }
   if (scopes.includes("email")) {
-    claims.email = user.email;
+    claims.email = emailAddress;
     claims.email_verified = user.emailVerified;
   }
   return claims;

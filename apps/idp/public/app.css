@@ -499,10 +499,11 @@ h1 {
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
+  /* Colors switch instantly: animating background under already-white text
+     would briefly fail contrast. Only motion and depth ease. */
   transition:
     transform 220ms var(--ease-premium),
-    box-shadow 220ms var(--ease-premium),
-    background-color 220ms var(--ease-premium);
+    box-shadow 220ms var(--ease-premium);
 }
 
 .btn-primary {
@@ -1353,6 +1354,34 @@ input[aria-invalid="true"] {
 .mask-placeholder {
   color: var(--text-muted);
   font-style: italic;
+}
+
+.badge-muted {
+  color: var(--text-muted);
+  background: var(--surface-raised);
+}
+
+.mask-body h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mask-address {
+  margin: 4px 0 0;
+  font-size: 0.95rem;
+}
+
+.mask-stats {
+  color: var(--text-muted);
+}
+
+.panel-warning {
+  border-color: color-mix(in srgb, var(--error-text) 40%, var(--border));
+}
+
+.panel-warning > .icon {
+  color: var(--error-text);
 }
 
 .mask-actions {

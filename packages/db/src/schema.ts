@@ -287,6 +287,58 @@ export const securityEvents = pgTable(
   (t) => [index("security_events_user_time_idx").on(t.userId, t.createdAt)],
 );
 
+export const maskStatus = pgEnum("mask_status", ["active", "disabled", "deleted"]);
+
+/**
+ * A private relay address ("mask"): what an app receives as `email`. Mail to
+ * it is forwarded to the user's verified address while it's active.
+ * Deleted masks are kept as tombstones so an address is never reissued.
+ */
+export const masks = pgTable(
+  "masks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    address: text("address").notNull(),
+    status: maskStatus("status").notNull().default("active"),
+    forwardedCount: bigint("forwarded_count", { mode: "number" }).notNull().default(0),
+    blockedCount: bigint("blocked_count", { mode: "number" }).notNull().default(0),
+    lastForwardedAt: timestamp("last_forwarded_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("masks_address_key").on(t.address),
+    // One live (active or disabled) mask per user per app.
+    uniqueIndex("masks_one_live_per_app").on(t.userId, t.clientId).where(sql`${t.status} <> 'deleted'`),
+  ],
+);
+
+/**
+ * A reply address for one outside correspondent of one mask. Forwarded mail
+ * carries it as From/Reply-To, so the user's replies come back through the
+ * relay and leave from the mask, never from their real address.
+ */
+export const reverseAliases = pgTable(
+  "reverse_aliases",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    maskId: uuid("mask_id")
+      .notNull()
+      .references(() => masks.id, { onDelete: "cascade" }),
+    // The outside party, lowercased.
+    correspondent: text("correspondent").notNull(),
+    address: text("address").notNull(),
+    createdAt: createdAt(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("reverse_aliases_address_key").on(t.address), uniqueIndex("reverse_aliases_pair_key").on(t.maskId, t.correspondent)],
+);
+
 export type User = typeof users.$inferSelect;
 export type Client = typeof clients.$inferSelect;
 export type NewClient = typeof clients.$inferInsert;
@@ -296,5 +348,7 @@ export type Consent = typeof consents.$inferSelect;
 export type Grant = typeof grants.$inferSelect;
 export type Passkey = typeof passkeys.$inferSelect;
 export type Perk = typeof perks.$inferSelect;
+export type Mask = typeof masks.$inferSelect;
+export type ReverseAlias = typeof reverseAliases.$inferSelect;
 export type SecurityEvent = typeof securityEvents.$inferSelect;
 export type RefreshToken = typeof refreshTokens.$inferSelect;

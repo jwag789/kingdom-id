@@ -13,6 +13,7 @@ import type { CodeStore } from "./oauth/codes.js";
 import type { ConsentService } from "./oauth/consents.js";
 import type { GrantService } from "./oauth/grants.js";
 import type { InteractionStore } from "./oauth/interactions.js";
+import type { RelayService } from "./relay/service.js";
 import type { PerkService } from "./oauth/perks.js";
 import type { TokenService } from "./oauth/tokens.js";
 import type { Csrf } from "./security/csrf.js";
@@ -30,6 +31,7 @@ export interface Context {
   passkeys: PasskeyService;
   events: SecurityEventService;
   perks: PerkService;
+  relay: RelayService;
   sessionCookie: string;
   emailVerification: EmailVerification;
   clients: ClientService;

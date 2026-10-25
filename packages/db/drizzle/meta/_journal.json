@@ -36,6 +36,13 @@
       "when": 1792928439768,
       "tag": "0004_dashboard",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792929422968,
+      "tag": "0005_email_relay",
+      "breakpoints": true
     }
   ]
 }

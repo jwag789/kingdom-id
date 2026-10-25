@@ -38,9 +38,13 @@ export function registerUserinfoRoutes(app: FastifyInstance, ctx: Context) {
 
     const scopes = claims.scope.split(" ");
     if (!scopes.includes("openid")) return unauthorized("invalid_token", "token lacks the openid scope");
+    const email =
+      scopes.includes("email") && ctx.config.EMAIL_RELAY_ENABLED
+        ? (await ctx.relay.ensureMask(user.id, claims.client_id)).address
+        : user.email;
     return reply.send({
       sub: claims.sub,
-      ...userClaims(user, scopes),
+      ...userClaims(user, scopes, email),
       ...(scopes.includes("perks") ? { perks: await ctx.perks.claimFor(user.id) } : {}),
     });
   };

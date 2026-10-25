@@ -118,6 +118,10 @@ export function registerInteractionRoutes(app: FastifyInstance, ctx: Context) {
     }
     const sub = subjectFor(ctx.serverSecret, client, authenticated.user.id);
     await ctx.consents.grant(authenticated.user.id, client.id, sub, interaction.request.scopes);
+    // The app's private address exists from the moment it's allowed to know one.
+    if (ctx.config.EMAIL_RELAY_ENABLED && interaction.request.scopes.includes("email")) {
+      await ctx.relay.ensureMask(authenticated.user.id, client.id);
+    }
     await ctx.events.record(req, {
       type: "app_connected",
       userId: authenticated.user.id,

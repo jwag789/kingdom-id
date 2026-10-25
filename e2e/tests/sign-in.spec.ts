@@ -58,7 +58,8 @@ test("a new user signs up with a passkey, then signs back in with it", async ({ 
   await page.getByRole("button", { name: "Sign up with a passkey" }).click();
 
   await expect(page.getByRole("heading", { name: "Continue to Kingdom Demo?" })).toBeVisible();
-  await expect(page.getByText("Your email address")).toBeVisible();
+  // The relay is on: the app is promised a private address, and the trust note says so.
+  await expect(page.getByText("A private email address")).toBeVisible();
   await expectAccessible(page);
   await page.getByRole("button", { name: "Allow" }).click();
 
@@ -66,7 +67,9 @@ test("a new user signs up with a passkey, then signs back in with it", async ({ 
   await expect(page).toHaveURL("http://localhost:4001/");
   await expect(page.getByTestId("greeting")).toHaveText("Signed in as Ada Lovelace");
   await expect(page.getByTestId("id-token")).toContainText('"acr": "phr"');
-  await expect(page.getByTestId("userinfo")).toContainText(email);
+  // The demo app received a private relay address, never the real one.
+  await expect(page.getByTestId("userinfo")).toContainText("@relay.localhost");
+  await expect(page.getByTestId("userinfo")).not.toContainText(email);
 
   // Sign out of Kingdom entirely, then back in with nothing but the passkey.
   // The login page offers the passkey through autofill (conditional

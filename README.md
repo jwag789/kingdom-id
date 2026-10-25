@@ -6,7 +6,7 @@ Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'
 
 - **Private by default with third parties, unified across Kingdom apps.** Third-party apps each see their own pairwise `sub`, so they can't link a user by ID. Kingdom's own apps share one, so perks and the dashboard follow the person. *(Built.)*
 - **Passkey-first sign-in**, with a password as the fallback. *(Built.)*
-- **A private relay email per app**, so the real address never leaves Kingdom. *(Phase 6.)*
+- **A private relay email per app**, so the real address never leaves Kingdom. Replies go back out through the relay too. *(Built; see [docs/email-relay.md](docs/email-relay.md).)*
 - **"Your Kingdom", one dashboard** for every connected app, what each one received, perks that carry across apps, and a security timeline. One click disconnects an app. *(Built.)*
 
 <p align="center">
@@ -29,7 +29,7 @@ Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'
 | 3 | OpenID Foundation conformance suite in CI | ✅ Done |
 | 4 | Passkeys and the designed sign-in experience | ✅ Done |
 | 5 | "Your Kingdom" dashboard | ✅ Done |
-| 6 | Email relay via AWS SES | Planned |
+| 6 | Email relay via AWS SES | ✅ Done |
 | 7 | Security event pipeline (Redis Streams) | Planned |
 | 8 | `kingdom` CLI, horizontal scaling proof, k6 benchmarks | Planned |
 | 9 | Deployment and the Next.js integration guide | Planned |
@@ -47,7 +47,7 @@ Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'
 |---|---|
 | **Realms** | Every connected app, the exact claims it received (the ID it knows you by, name, email, perks, offline access), when it was connected and last used. **Disconnect** removes the consent and revokes every grant for that app, so its refresh token families and live access tokens stop working immediately. |
 | **Treasury** | Perks you've unlocked, plus the ones within reach and what's left to unlock them. Apps offer perks; the rules are *connected*, *connected for N days*, *connected N Kingdom apps*, or *granted by hand*. First-party apps receive unlocked perks as the `perks` claim. |
-| **Masks** | Per-app private email addresses. The UI exists now; the addresses and forwarding arrive with the email relay (phase 6). Until then the page says plainly which apps see your real address. |
+| **Masks** | Each app's private email address, with how much mail it has forwarded and blocked. **Pause** drops new mail until resumed; **Delete** retires the address for good, and the app gets a fresh one next time. |
 | **Watchtower** | A timeline of sign-ins (and failed attempts against your account), new passkeys, connected and disconnected apps, and alerts when Kingdom ID blocks a copied refresh token or a replayed sign-in. |
 | **Keys** | Passkeys (add, remove, see when each was last used) and whether a password is set. |
 
@@ -100,6 +100,7 @@ docker compose up -d      # Postgres on :54320, Redis on :63790
 pnpm install
 pnpm seed                 # registers the demo client; copy the printed secret into .env as DEMO_CLIENT_SECRET
 pnpm dev                  # Kingdom ID on :4000, demo client on :4001
+pnpm --filter @kingdom-id/idp relay:simulate <private-address>   # push a test email through the relay, no AWS needed
 ```
 
 Open http://localhost:4001 and click **Sign in with Kingdom**.
@@ -137,6 +138,8 @@ CI runs lint, typecheck, build, the test suite and the browser e2e on every push
 | JWKS | RFC 7517 (JWK), RFC 7638 (thumbprint `kid`s) |
 | JWT access tokens (`typ: at+jwt`) | RFC 9068 |
 | Bearer token usage at UserInfo | RFC 6750 |
+| Email relay: header rewriting, encoded display names, sender authentication | RFC 5322, RFC 2047, SPF (RFC 7208), DKIM (RFC 6376), DMARC (RFC 7489) |
+| Inbound delivery from SES | Amazon SNS message signatures (versions 1 and 2) |
 | Authorization response `iss` parameter | RFC 9207 |
 | `prompt=create` | OpenID Connect Initiating User Registration 1.0 |
 | Passkeys: discoverable credentials, user verification, conditional mediation (autofill) | W3C Web Authentication Level 3 |
@@ -189,6 +192,9 @@ _Phase 8 adds a k6 load test of the token endpoint across two instances. Results
 | Admin takeover | Admin is a database flag set only from the command line, and every admin page also requires a passkey session (`acr` = `phr`), so a phished password can't reach it. Admin actions are written to the audit log. |
 | Cross-app linkage through perks | Perks reveal which Kingdom apps someone uses, so the `perks` scope is offered only to first-party apps by default; third parties never receive it. |
 | An app keeps access after being disconnected | Disconnect removes the consent first, then revokes every grant for the app, which kills refresh token families and access tokens (checked via `gid`). UserInfo also requires the consent to exist. |
+| The relay used as an open relay or to spoof a member | Only an address's owner can send through it, and only with mail that passes SPF or DKIM without failing DMARC. Spoof attempts are dropped and shown in Watchtower. Unknown and deleted addresses and relay loops are dropped. |
+| Forged inbound mail notifications | `/relay/sns` accepts only messages for the configured topic with a valid SNS signature, verified against a certificate fetched over HTTPS from an Amazon SNS host. Subscription confirmation follows only SNS-hosted URLs. Redelivered notifications are processed once. |
+| Real address leaking through relayed mail | Replies leave from the private address with `To`/`Cc`/`Bcc` and identifying headers rebuilt, and `mailto:` unsubscribe links are stripped. Forwarding waits until the member's own address is verified. |
 | Locking yourself out | The last passkey of a passwordless account can't be removed. |
 | Credential stuffing and brute force | Sliding-window limits per IP and per account at login, per IP at authorize, signup and userinfo, and per IP and per client at the token endpoint. |
 | Account enumeration | Login errors and timing are uniform (argon2 runs against a dummy hash for unknown accounts). Signup does reveal that an email is taken; this is bounded by rate limits, and fully avoiding it requires email-first verification. |
@@ -220,7 +226,11 @@ against the access token (OIDC Core §5.4). ID tokens get passed around as proof
 
 **Watchtower writes directly, for now.** Phase 5 records security events straight into Postgres. Phase 7 puts a Redis Stream and detection rules in front of the same table, so the dashboard won't change.
 
-**No privacy claims ahead of the feature.** The design calls for a note that apps receive a private email mask. That note, and the matching line in the brand story, render only when `EMAIL_RELAY_ENABLED` is on, which phase 6 does.
+**The relay rewrites headers, never bodies.** Bodies, MIME parts and attachments pass through byte-for-byte, so nothing the sender wrote is altered or re-encoded. Headers are rebuilt so every message leaves `From` the relay domain and is DKIM-signed for it, which is what DMARC requires of a forwarder. The trade-off is quoted reply text, which the relay leaves alone (see the relay guide's known limits).
+
+**Deleted addresses are tombstones.** A deleted private address is kept, marked deleted, so it can never be issued to someone else and start receiving the first owner's mail.
+
+**No privacy claims ahead of the feature.** The design calls for a note that apps receive a private email mask. That note, and the matching line in the brand story, render only when `EMAIL_RELAY_ENABLED` is on (the default since the relay shipped). Turning the relay off turns the claims off with it.
 
 **Drizzle on postgres.js.** Typed queries that stay close to SQL, and migrations committed as reviewable SQL. Invariants like "one active key per algorithm" are partial unique indexes, so the database enforces them rather than relying on the rotation code being careful.
 

@@ -111,3 +111,21 @@ test.describe("dashboard on a phone, light mode", () => {
     }
   });
 });
+
+test("private addresses can be paused, resumed and deleted from Masks", async ({ page, context }) => {
+  await memberWithRealm(context, page, "Annie Easley");
+  const address = (await page.getByTestId("userinfo").textContent())!.match(/[a-z]+-[a-z]+\.[a-z2-9]{6}@relay\.localhost/)![0];
+
+  await page.goto("http://localhost:4000/account/masks");
+  await expect(page.getByText(address)).toBeVisible();
+  await expect(page.getByText("Verify your email to start receiving mail")).toBeVisible();
+  await expectAccessible(page);
+
+  await page.getByRole("button", { name: "Pause forwarding for Kingdom Demo" }).click();
+  await expect(page.getByRole("status")).toContainText(`Paused ${address}`);
+  await page.getByRole("button", { name: "Resume forwarding for Kingdom Demo" }).click();
+  await expect(page.getByRole("status")).toContainText(`Resumed ${address}`);
+  await page.getByRole("button", { name: "Delete Kingdom Demo's address" }).click();
+  await expect(page.getByRole("status")).toContainText(`Deleted ${address}`);
+  await expect(page.getByText("No private addresses yet")).toBeVisible();
+});

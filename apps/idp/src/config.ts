@@ -26,11 +26,23 @@ const schema = z.object({
   // Scales every rate limit. 1 in production; the conformance environment
   // raises it because one test IP signs one user in dozens of times a minute.
   RATE_LIMIT_MULTIPLIER: z.coerce.number().positive().default(1),
-  // Per-app private email addresses (phase 6). Until they exist, no page claims them.
+  // Per-app private email addresses. When on, apps receive a relay address
+  // as `email`, and the sign-in pages say so.
   EMAIL_RELAY_ENABLED: z
     .enum(["true", "false"])
-    .default("false")
+    .default("true")
     .transform((v) => v === "true"),
+  // Defaults to relay.<issuer host>.
+  RELAY_DOMAIN: z
+    .string()
+    .regex(/^[a-z0-9.-]+\.[a-z]{2,}$|^relay\.localhost$/, "must be a lowercase domain")
+    .optional(),
+  // "memory" keeps forwarded mail in memory and logs it (development); "ses" sends through Amazon SES.
+  RELAY_TRANSPORT: z.enum(["memory", "ses"]).default("memory"),
+  // The SNS topic SES publishes inbound mail to. Without it, the inbound endpoint doesn't exist.
+  RELAY_SNS_TOPIC_ARN: z.string().regex(/^arn:aws(-[a-z]+)?:sns:[a-z0-9-]+:\d{12}:[\w-]+$/).optional(),
+  RELAY_SES_CONFIGURATION_SET: z.string().optional(),
+  AWS_REGION: z.string().optional(),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
 
   ACCESS_TOKEN_TTL_SECONDS: duration.default(600),
@@ -48,7 +60,7 @@ const schema = z.object({
   KEY_RETIREMENT_GRACE_SECONDS: duration.default(60 * 60 * 24),
 });
 
-export type Config = z.infer<typeof schema> & { secureCookies: boolean };
+export type Config = z.infer<typeof schema> & { secureCookies: boolean; relayDomain: string };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const parsed = schema.safeParse(env);
@@ -67,5 +79,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   // `Secure` cookies work on http://localhost in every current browser, so
   // only a plain-http non-localhost issuer (never allowed in production) opts out.
   const secureCookies = issuer.protocol === "https:" || issuer.hostname === "localhost";
-  return { ...config, secureCookies };
+  if (config.RELAY_TRANSPORT === "ses" && !config.AWS_REGION) throw new Error("AWS_REGION is required when RELAY_TRANSPORT=ses");
+  const relayDomain = config.RELAY_DOMAIN ?? `relay.${issuer.hostname}`;
+  return { ...config, secureCookies, relayDomain };
 }

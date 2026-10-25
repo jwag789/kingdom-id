@@ -204,16 +204,17 @@ describe("Your Kingdom dashboard", () => {
   });
 
   describe("Masks", () => {
-    it("shows each app and what email it has, with relay controls not yet active", async () => {
+    it("lists each app's private address, and the apps that have no email at all", async () => {
       const withEmail = await registerClient(t.ctx, { name: "Mailer" });
       const withoutEmail = await registerClient(t.ctx, { name: "Quiet" });
       const flow = await signUpAndAuthorize(t.app, withEmail.client, { extra: { scope: "openid email" } });
       await connect(flow.browser, withoutEmail, "openid");
       const page = (await flow.browser.get("/account/masks")).body;
-      expect(page).toContain("Private addresses are on the way");
-      expect(page).toContain("Not issued yet");
-      expect(page).toContain("have your email address.");
-      expect(page).toMatch(/<button[^>]*disabled[^>]*>Turn off forwarding/);
+      expect(page).toMatch(/[a-z]+-[a-z]+\.[a-z2-9]{6}@relay\.localhost/);
+      expect(page).toContain("Pause forwarding");
+      expect(page).toContain("Quiet doesn");
+      // The account isn't verified yet, so the page says mail is being held.
+      expect(page).toContain("Verify your email to start receiving mail");
     });
   });
 

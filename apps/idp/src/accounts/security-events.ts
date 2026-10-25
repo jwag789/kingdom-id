@@ -13,7 +13,11 @@ export type SecurityEventType =
   | "app_connected"
   | "app_disconnected"
   | "refresh_token_reuse"
-  | "code_replay";
+  | "code_replay"
+  | "mask_disabled"
+  | "mask_enabled"
+  | "mask_deleted"
+  | "relay_spoof_blocked";
 
 export interface SecurityEventInput {
   type: SecurityEventType;

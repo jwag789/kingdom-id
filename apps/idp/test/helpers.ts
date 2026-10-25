@@ -3,7 +3,7 @@ import { connect, runMigrations } from "@kingdom-id/db";
 import postgres from "postgres";
 import type { FastifyInstance, LightMyRequestResponse } from "fastify";
 import { inject } from "vitest";
-import { buildApp } from "../src/app.js";
+import { type AppDeps, buildApp } from "../src/app.js";
 import { type Config, loadConfig } from "../src/config.js";
 import type { Context } from "../src/context.js";
 import { connectRedis } from "../src/lib/redis.js";
@@ -36,11 +36,14 @@ export interface TestApp {
 }
 
 /** Builds the real app against the shared containers. */
-export async function createTestApp(overrides: Record<string, string> = {}): Promise<TestApp> {
+export async function createTestApp(
+  overrides: Record<string, string> = {},
+  deps: Pick<AppDeps, "relayTransport" | "relayInbound"> = {},
+): Promise<TestApp> {
   const config = testConfig(overrides);
   const database = connect(config.DATABASE_URL, { max: 4 });
   const redis = connectRedis(config.REDIS_URL);
-  const { app, ctx } = await buildApp({ config, db: database.db, redis, logger: false });
+  const { app, ctx } = await buildApp({ config, db: database.db, redis, logger: false, ...deps });
   await ctx.keys.ensureKeys();
   await app.ready();
   return {

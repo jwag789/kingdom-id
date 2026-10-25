@@ -1,4 +1,4 @@
-import type { Client, Consent, Passkey, SecurityEvent } from "@kingdom-id/db";
+import type { Client, Consent, Mask, Passkey, SecurityEvent } from "@kingdom-id/db";
 import type { ComponentChildren } from "preact";
 import type { SecurityEventType } from "../accounts/security-events.js";
 import type { UnlockedPerk } from "../oauth/perks.js";
@@ -152,6 +152,8 @@ function Empty({ icon, title, children }: { icon: IconName; title: string; child
 export interface Realm {
   client: Client;
   consent: Consent;
+  /** The private address this app received, when the relay is on. */
+  maskAddress?: string | undefined;
 }
 
 function claimsReceived(realm: Realm, user: { name: string; email: string }) {
@@ -161,7 +163,7 @@ function claimsReceived(realm: Realm, user: { name: string; email: string }) {
     { label: pairwise ? "Kingdom ID for this app" : "Kingdom ID", value: `${subject.slice(0, 10)}…` },
   ];
   if (scopes.includes("profile")) items.push({ label: "Name", value: user.name });
-  if (scopes.includes("email")) items.push({ label: "Email", value: user.email });
+  if (scopes.includes("email")) items.push({ label: realm.maskAddress ? "Private email" : "Email", value: realm.maskAddress ?? user.email });
   if (scopes.includes("perks")) items.push({ label: "Perks", value: "Your unlocked perks" });
   if (scopes.includes("offline_access")) items.push({ label: "Access", value: "Stays connected while you're away" });
   return items;
@@ -286,60 +288,91 @@ export function TreasuryPage(props: ShellProps & { unlocked: UnlockedPerk[]; loc
 // Masks
 // ------------------------------------------------------------------
 
-export function MasksPage(props: ShellProps & { realms: Realm[] }) {
-  const { ui, realms, user } = props;
-  return (
-    <Shell {...props} section="masks">
-      {!ui.relay && (
+export interface MaskRow {
+  mask: Mask;
+  clientName: string;
+  clientLogo: string | null;
+}
+
+export function MasksPage(props: ShellProps & { masks: MaskRow[]; withoutEmail: Realm[]; emailVerified: boolean }) {
+  const { ui, masks, user } = props;
+  if (!ui.relay) {
+    return (
+      <Shell {...props} section="masks">
         <div class="panel panel-callout">
           <Icon name="mask" />
           <div>
-            <h2>Private addresses are on the way</h2>
+            <h2>Private addresses are switched off</h2>
+            <p>Apps that asked for your email have your real address, {user.email}.</p>
+          </div>
+        </div>
+      </Shell>
+    );
+  }
+  return (
+    <Shell {...props} section="masks">
+      {!props.emailVerified && (
+        <div class="panel panel-callout panel-warning">
+          <Icon name="alert" />
+          <div>
+            <h2>Verify your email to start receiving mail</h2>
             <p>
-              Soon every app gets its own address that forwards to you. You'll be able to turn one off, or delete it, without
-              touching your real inbox. Until then, apps that asked for your email have your real address, as shown below.
+              Mail to your private addresses is held back until you confirm {user.email} is yours, so it can't be forwarded to
+              someone else. Check your inbox for the verification link.
             </p>
           </div>
         </div>
       )}
-      {realms.length === 0 ? (
-        <Empty icon="mask" title="No masks yet">
-          Each app you connect will get its own private address here.
+      {masks.length === 0 ? (
+        <Empty icon="mask" title="No private addresses yet">
+          When an app asks for your email, it gets its own private address that forwards here. It never sees {user.email}.
         </Empty>
       ) : (
         <ul class="masks">
-          {realms.map(({ client, consent }) => {
-            const sharesEmail = consent.scopes.includes("email");
+          {masks.map(({ mask, clientName, clientLogo }) => {
+            const on = mask.status === "active";
             return (
               <li class="panel mask">
-                <AppTile client={client} />
+                <AppTile client={{ name: clientName, logoUri: clientLogo }} />
                 <div class="mask-body">
-                  <h2>{client.name}</h2>
-                  {sharesEmail ? (
-                    <p>
-                      <span class="mask-label">Sees</span> <span class="mono">{user.email}</span>
-                    </p>
-                  ) : (
-                    <p class="mask-none">Doesn't have your email address.</p>
-                  )}
-                  <p>
-                    <span class="mask-label">Private address</span>{" "}
-                    <span class="mask-placeholder">{sharesEmail ? "Not issued yet" : "None needed"}</span>
+                  <h2>
+                    {clientName} <span class={on ? "badge" : "badge badge-muted"}>{on ? "Forwarding" : "Paused"}</span>
+                  </h2>
+                  <p class="mono mask-address">{mask.address}</p>
+                  <p class="mask-stats">
+                    {mask.forwardedCount} forwarded · {mask.blockedCount} blocked
+                    {mask.lastForwardedAt ? ` · last ${relativeTime(mask.lastForwardedAt)}` : ""}
                   </p>
                 </div>
-                <div class="mask-actions" aria-label={`Controls for ${client.name}'s private address`} role="group">
-                  <button type="button" class="btn btn-secondary btn-small" disabled>
-                    Turn off forwarding
-                  </button>
-                  <button type="button" class="btn btn-secondary btn-small" disabled>
-                    Delete address
-                  </button>
+                <div class="mask-actions">
+                  <form method="post" action={`/account/masks/${mask.id}/${on ? "disable" : "enable"}`}>
+                    <input type="hidden" name="csrf" value={props.csrf} />
+                    <button type="submit" class="btn btn-secondary btn-small" aria-label={`${on ? "Pause" : "Resume"} forwarding for ${clientName}`}>
+                      {on ? "Pause forwarding" : "Resume forwarding"}
+                    </button>
+                  </form>
+                  <form method="post" action={`/account/masks/${mask.id}/delete`}>
+                    <input type="hidden" name="csrf" value={props.csrf} />
+                    <button type="submit" class="btn btn-danger btn-small" aria-label={`Delete ${clientName}'s address`}>
+                      Delete address
+                    </button>
+                  </form>
                 </div>
               </li>
             );
           })}
         </ul>
       )}
+      {props.withoutEmail.length > 0 && (
+        <p class="footnote">
+          {props.withoutEmail.map((r) => r.client.name).join(", ")} {props.withoutEmail.length === 1 ? "doesn't" : "don't"} have
+          an email address for you.
+        </p>
+      )}
+      <p class="footnote">
+        Pausing drops new mail to that address until you resume it. Deleting retires the address for good; the app gets a new one
+        the next time it asks. Replies you send go out from the private address, never from {user.email}.
+      </p>
     </Shell>
   );
 }
@@ -364,6 +397,14 @@ const EVENT_COPY: Record<SecurityEventType, { icon: IconName; title: (e: EventRo
     alert: true,
   },
   code_replay: { icon: "shield", title: (e) => `Blocked a replayed sign-in for ${e.clientName ?? "an app"}`, alert: true },
+  mask_disabled: { icon: "mask", title: (e) => `Paused forwarding for ${e.clientName ?? "an app"}'s address` },
+  mask_enabled: { icon: "mask", title: (e) => `Resumed forwarding for ${e.clientName ?? "an app"}'s address` },
+  mask_deleted: { icon: "trash", title: (e) => `Deleted ${e.clientName ?? "an app"}'s address` },
+  relay_spoof_blocked: {
+    icon: "shield",
+    title: () => "Blocked an email pretending to be you from going out through a private address",
+    alert: true,
+  },
 };
 
 interface EventRow {

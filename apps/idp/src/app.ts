@@ -23,6 +23,9 @@ import { CodeStore } from "./oauth/codes.js";
 import { ConsentService } from "./oauth/consents.js";
 import { GrantService } from "./oauth/grants.js";
 import { InteractionStore } from "./oauth/interactions.js";
+import { RelayService } from "./relay/service.js";
+import { httpsCertFetcher, s3MessageFetcher } from "./relay/sns.js";
+import { MemoryTransport, type RelayTransport, SesTransport } from "./relay/transport.js";
 import { PerkService } from "./oauth/perks.js";
 import { TokenService } from "./oauth/tokens.js";
 import { registerAccountRoutes } from "./routes/account.js";
@@ -34,6 +37,7 @@ import { registerHealthRoutes } from "./routes/health.js";
 import { registerInteractionRoutes } from "./routes/interaction.js";
 import { registerLogoutRoutes } from "./routes/logout.js";
 import { registerPasskeyRoutes } from "./routes/passkeys.js";
+import { type RelayInboundDeps, registerRelayInboundRoutes } from "./routes/relay.js";
 import { registerTokenManagementRoutes } from "./routes/token-management.js";
 import { registerTokenRoutes } from "./routes/token.js";
 import { registerUserinfoRoutes } from "./routes/userinfo.js";
@@ -49,6 +53,9 @@ export interface AppDeps {
   db: Database;
   redis: Redis;
   mailer?: Mailer;
+  /** Overrides for tests: where relayed mail goes, and how SNS/S3 are reached. */
+  relayTransport?: RelayTransport;
+  relayInbound?: Partial<RelayInboundDeps>;
   logger?: FastifyServerOptions["logger"];
 }
 
@@ -77,6 +84,12 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
     refreshIdleTtl: config.REFRESH_TOKEN_IDLE_TTL_SECONDS,
     refreshAbsoluteTtl: config.REFRESH_TOKEN_ABSOLUTE_TTL_SECONDS,
   });
+  const relayTransport =
+    deps.relayTransport ??
+    (config.RELAY_TRANSPORT === "ses"
+      ? new SesTransport(config.AWS_REGION!, config.RELAY_SES_CONFIGURATION_SET)
+      : new MemoryTransport((msg, data) => app.log.info(data, msg)));
+  const events = new SecurityEventService(db);
   const mailer = deps.mailer ?? new LogMailer((msg, data) => app.log.info(data, msg));
 
   const ctx: Context = {
@@ -89,8 +102,13 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
     sessions: new SessionService(db, config.SESSION_TTL_SECONDS),
     // The issuer's host is the WebAuthn relying party ID: passkeys are bound to it.
     passkeys: new PasskeyService(db, redis, { rpID: new URL(config.ISSUER).hostname, origin: new URL(config.ISSUER).origin }),
-    events: new SecurityEventService(db),
+    events,
     perks: new PerkService(db),
+    relay: new RelayService(db, redis, relayTransport, {
+      domain: config.relayDomain,
+      onSpoof: ({ userId, claimedFrom }) =>
+        events.record(undefined, { type: "relay_spoof_blocked", userId, details: { claimedFrom } }),
+    }),
     sessionCookie: cookieName("kid_session", config.secureCookies),
     emailVerification: new EmailVerification(redis, mailer, config.ISSUER),
     clients: new ClientService(db),
@@ -110,6 +128,8 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
   };
 
   await app.register(cookie);
+  // SNS posts JSON with Content-Type: text/plain.
+  app.addContentTypeParser("text/plain", { parseAs: "string" }, (_req, body, done) => done(null, body));
   await app.register(formbody);
   registerSecurityHeaders(app, { hsts: config.NODE_ENV === "production" });
 
@@ -176,6 +196,16 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
   registerAccountRoutes(app, ctx);
   registerDashboardRoutes(app, ctx);
   registerAdminRoutes(app, ctx);
+  registerRelayInboundRoutes(app, ctx, {
+    fetchCert: deps.relayInbound?.fetchCert ?? httpsCertFetcher(),
+    fetchRaw: deps.relayInbound?.fetchRaw ?? (config.AWS_REGION ? s3MessageFetcher(config.AWS_REGION) : undefined),
+    confirmSubscription:
+      deps.relayInbound?.confirmSubscription ??
+      (async (url) => {
+        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        if (!res.ok) throw new Error(`SNS subscription confirmation failed: ${res.status}`);
+      }),
+  });
 
   return { app, ctx };
 }
