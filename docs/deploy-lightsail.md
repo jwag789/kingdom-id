@@ -58,9 +58,12 @@ On the machine, for example Cappuccino:
 cd ~/kingdom-id
 sudo docker compose exec app-1 node dist/cli/bin.js clients create \
   --name Cappuccino --first-party \
-  --redirect-uri https://<cappuccino's domain>/api/auth/kingdom/callback \
-  --post-logout-uri https://<cappuccino's domain>/login
+  --redirect-uri https://usecappuccino.com/api/auth/kingdom/callback \
+  --redirect-uri https://www.usecappuccino.com/api/auth/kingdom/callback \
+  --post-logout-uri https://usecappuccino.com/login
 ```
+
+Redirect URIs match exactly, so list every host people reach the app on (here with and without `www`).
 
 It prints a `client_id` and a `client_secret` once. Put them straight into the app's environment (for an Amplify app: **Hosting → Environment variables**), not into chat or a file.
 
