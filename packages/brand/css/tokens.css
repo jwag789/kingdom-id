@@ -18,14 +18,15 @@
   --brand-400: #1079ff;
   --brand-500: #0054ee;
   --brand-600: #0046c7;
+  --brand-900: #0b2559;
   --aqua-400: #22d3ee;
   --iris-300: #b9a9ff;
   --iris-600: #6e5bff;
   --danger: #ff6b81;
   --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
   --radius: 14px;
-  --font-sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-serif: Newsreader, Georgia, serif;
+  --font-sans: "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: "Newsreader Variable", Newsreader, Georgia, serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
   /* Semantic layer: dark */
@@ -40,6 +41,8 @@
   --on-accent: #ffffff;
   --focus: var(--aqua-400);
   --error-text: #ff9aa9;
+  --border-strong: rgb(255 255 255 / 0.2);
+  --input-bg: rgb(255 255 255 / 0.04);
   color-scheme: dark;
 }
 
@@ -55,6 +58,8 @@
     --accent-text: var(--brand-600);
     --focus: var(--brand-500);
     --error-text: #b4123a;
+    --border-strong: var(--ink-300);
+    --input-bg: #ffffff;
     color-scheme: light;
   }
 }
@@ -70,5 +75,7 @@
   --accent-text: var(--brand-600);
   --focus: var(--brand-500);
   --error-text: #b4123a;
+  --border-strong: var(--ink-300);
+  --input-bg: #ffffff;
   color-scheme: light;
 }

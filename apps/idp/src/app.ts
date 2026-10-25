@@ -4,10 +4,12 @@ import fastifyStatic from "@fastify/static";
 import { assetsDir, tokensCssPath } from "@kingdom-id/brand";
 import type { Database } from "@kingdom-id/db";
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
-import { dirname } from "node:path";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Redis } from "ioredis";
 import { EmailVerification, LogMailer, type Mailer } from "./accounts/email-verification.js";
+import { PasskeyService } from "./accounts/passkeys.js";
 import { SessionService } from "./accounts/sessions.js";
 import { UserService } from "./accounts/users.js";
 import type { Config } from "./config.js";
@@ -27,6 +29,7 @@ import { registerDiscoveryRoutes } from "./routes/discovery.js";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerInteractionRoutes } from "./routes/interaction.js";
 import { registerLogoutRoutes } from "./routes/logout.js";
+import { registerPasskeyRoutes } from "./routes/passkeys.js";
 import { registerTokenManagementRoutes } from "./routes/token-management.js";
 import { registerTokenRoutes } from "./routes/token.js";
 import { registerUserinfoRoutes } from "./routes/userinfo.js";
@@ -34,7 +37,7 @@ import { cookieName } from "./security/cookies.js";
 import { Csrf, CsrfError } from "./security/csrf.js";
 import { registerSecurityHeaders } from "./security/headers.js";
 import { RateLimitedError, RateLimiter } from "./security/rate-limit.js";
-import { sendPage } from "./views/layout.js";
+import { sendPage, uiFor } from "./views/layout.js";
 import { MessagePage } from "./views/pages.js";
 
 export interface AppDeps {
@@ -46,9 +49,10 @@ export interface AppDeps {
 }
 
 const publicDir = fileURLToPath(new URL("../public", import.meta.url));
+const fontDir = (pkg: string) => join(dirname(createRequire(import.meta.url).resolve(`${pkg}/package.json`)), "files");
 
 // Endpoints called by client software rather than browsers get JSON errors.
-const JSON_ROUTES = ["/token", "/userinfo", "/revoke", "/introspect"];
+const JSON_ROUTES = ["/token", "/userinfo", "/revoke", "/introspect", "/passkeys/"];
 
 export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; ctx: Context }> {
   const { config, db, redis } = deps;
@@ -79,6 +83,8 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
     keys,
     users: new UserService(db),
     sessions: new SessionService(db, config.SESSION_TTL_SECONDS),
+    // The issuer's host is the WebAuthn relying party ID: passkeys are bound to it.
+    passkeys: new PasskeyService(db, redis, { rpID: new URL(config.ISSUER).hostname, origin: new URL(config.ISSUER).origin }),
     sessionCookie: cookieName("kid_session", config.secureCookies),
     emailVerification: new EmailVerification(redis, mailer, config.ISSUER),
     clients: new ClientService(db),
@@ -109,18 +115,28 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
     decorateReply: false,
   });
 
+  // Self-hosted fonts: no third-party requests from the sign-in page.
+  await app.register(fastifyStatic, {
+    root: [fontDir("@fontsource-variable/inter"), fontDir("@fontsource-variable/newsreader")],
+    prefix: "/fonts/",
+    maxAge: "30d",
+    immutable: true,
+    decorateReply: false,
+  });
+
   app.setErrorHandler(async (err, req, reply) => {
     const wantsJson = JSON_ROUTES.some((r) => req.url.startsWith(r));
     if (err instanceof RateLimitedError) {
       reply.status(429).header("retry-after", String(err.retryAfterSeconds));
       return wantsJson
         ? reply.header("cache-control", "no-store").send({ error: "rate_limited", error_description: "too many requests" })
-        : sendPage(reply, MessagePage({ title: "Slow down", message: "Too many attempts. Wait a moment and try again.", tone: "error" }), 429);
+        : sendPage(reply, MessagePage({ ui: uiFor(ctx, req), title: "Slow down", message: "Too many attempts. Wait a moment and try again.", tone: "error" }), 429);
     }
     if (err instanceof CsrfError) {
+      if (wantsJson) return reply.status(403).send({ error: "Your page expired. Reload and try again." });
       return sendPage(
         reply,
-        MessagePage({ title: "Your form expired", message: "Go back, reload the page, and try again.", tone: "error" }),
+        MessagePage({ ui: uiFor(ctx, req), title: "Your form expired", message: "Go back, reload the page, and try again.", tone: "error" }),
         403,
       );
     }
@@ -137,7 +153,7 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
     }
     return sendPage(
       reply,
-      MessagePage({ title: "Something went wrong", message: "Kingdom ID couldn't complete that request.", tone: "error" }),
+      MessagePage({ ui: uiFor(ctx, req), title: "Something went wrong", message: "Kingdom ID couldn't complete that request.", tone: "error" }),
       status,
     );
   });
@@ -150,6 +166,7 @@ export async function buildApp(deps: AppDeps): Promise<{ app: FastifyInstance; c
   registerUserinfoRoutes(app, ctx);
   registerTokenManagementRoutes(app, ctx);
   registerLogoutRoutes(app, ctx);
+  registerPasskeyRoutes(app, ctx);
   registerAccountRoutes(app, ctx);
 
   return { app, ctx };

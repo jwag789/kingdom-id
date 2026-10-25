@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   index,
   inet,
@@ -23,12 +24,40 @@ export const users = pgTable(
     email: text("email").notNull(),
     emailVerified: boolean("email_verified").notNull().default(false),
     name: text("name").notNull(),
-    // Null once passkeys arrive and a user opts out of having a password.
+    // Null for passkey-only accounts.
     passwordHash: text("password_hash"),
+    // WebAuthn user handle: random, opaque, and separate from `id` so
+    // authenticators never hold the internal user ID.
+    webauthnUserId: text("webauthn_user_id"),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("users_email_key").on(t.email)],
+  (t) => [uniqueIndex("users_email_key").on(t.email), uniqueIndex("users_webauthn_user_id_key").on(t.webauthnUserId)],
+);
+
+/** A WebAuthn credential (passkey). Only public material is stored. */
+export const passkeys = pgTable(
+  "passkeys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // base64url credential ID, as the browser reports it.
+    credentialId: text("credential_id").notNull(),
+    // base64url COSE public key.
+    publicKey: text("public_key").notNull(),
+    signCount: bigint("sign_count", { mode: "number" }).notNull().default(0),
+    transports: text("transports").array().notNull().default(sql`'{}'::text[]`),
+    // multiDevice = synced passkey (iCloud Keychain, Google Password Manager…).
+    deviceType: text("device_type").notNull(),
+    backedUp: boolean("backed_up").notNull(),
+    aaguid: text("aaguid").notNull(),
+    name: text("name").notNull(),
+    createdAt: createdAt(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("passkeys_credential_id_key").on(t.credentialId), index("passkeys_user_id_idx").on(t.userId)],
 );
 
 export const clientType = pgEnum("client_type", ["confidential", "public"]);
@@ -196,4 +225,5 @@ export type SigningKey = typeof signingKeys.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type Consent = typeof consents.$inferSelect;
 export type Grant = typeof grants.$inferSelect;
+export type Passkey = typeof passkeys.$inferSelect;
 export type RefreshToken = typeof refreshTokens.$inferSelect;

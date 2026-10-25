@@ -1,6 +1,7 @@
 import type { Database } from "@kingdom-id/db";
 import type { Redis } from "ioredis";
 import type { EmailVerification } from "./accounts/email-verification.js";
+import type { PasskeyService } from "./accounts/passkeys.js";
 import type { SessionService } from "./accounts/sessions.js";
 import type { UserService } from "./accounts/users.js";
 import type { Config } from "./config.js";
@@ -24,6 +25,7 @@ export interface Context {
   keys: KeyStore;
   users: UserService;
   sessions: SessionService;
+  passkeys: PasskeyService;
   sessionCookie: string;
   emailVerification: EmailVerification;
   clients: ClientService;

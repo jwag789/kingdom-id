@@ -42,6 +42,11 @@ export class UserService {
     return rows[0];
   }
 
+  async emailExists(email: string): Promise<boolean> {
+    const [row] = await this.db.select({ id: users.id }).from(users).where(eq(users.email, normalizeEmail(email)));
+    return !!row;
+  }
+
   async findById(id: string): Promise<User | undefined> {
     const [user] = await this.db.select().from(users).where(eq(users.id, id));
     return user;

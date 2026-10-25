@@ -12,7 +12,7 @@ export const SCOPE_CLAIMS: Record<Scope, readonly string[]> = {
 };
 
 export const CLAIMS_SUPPORTED = [
-  ...new Set(["iss", "aud", "exp", "iat", "auth_time", "nonce", "amr", "sid", "at_hash", ...Object.values(SCOPE_CLAIMS).flat()]),
+  ...new Set(["iss", "aud", "exp", "iat", "auth_time", "nonce", "acr", "amr", "sid", "at_hash", ...Object.values(SCOPE_CLAIMS).flat()]),
 ];
 
 /** Plain-language descriptions for the consent screen. */

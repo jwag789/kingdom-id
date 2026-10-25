@@ -13,6 +13,15 @@ export default tseslint.config(
     },
   },
   {
+    // Browser script served as-is to the sign-in pages.
+    files: ["apps/idp/public/**/*.js"],
+    languageOptions: { globals: { window: "readonly", document: "readonly", navigator: "readonly", fetch: "readonly", atob: "readonly", btoa: "readonly", PublicKeyCredential: "readonly", AbortController: "readonly" } },
+  },
+  {
+    files: ["e2e/*.mjs"],
+    languageOptions: { globals: { process: "readonly" } },
+  },
+  {
     files: ["**/scripts/**", "**/*.config.*", "e2e/**"],
     rules: { "no-console": "off" },
   },

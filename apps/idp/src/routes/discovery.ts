@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import type { Context } from "../context.js";
+import { ACR_VALUES_SUPPORTED } from "../accounts/auth-methods.js";
 import { CLAIMS_SUPPORTED, SUPPORTED_SCOPES } from "../oauth/scopes.js";
 
 export function discoveryDocument(issuer: string) {
@@ -23,6 +24,7 @@ export function discoveryDocument(issuer: string) {
     introspection_endpoint_auth_methods_supported: ["client_secret_basic", "client_secret_post"],
     code_challenge_methods_supported: ["S256"],
     claims_supported: CLAIMS_SUPPORTED,
+    acr_values_supported: ACR_VALUES_SUPPORTED,
     claims_parameter_supported: false,
     request_parameter_supported: false,
     request_uri_parameter_supported: false,

@@ -92,6 +92,16 @@ export class Browser {
     });
   }
 
+  /** A JSON POST, as passkey.js sends: the CSRF token travels in the body. */
+  json(url: string, body: Record<string, unknown>, headers: Record<string, string> = {}) {
+    return this.send("POST", url, JSON.stringify(body), { "content-type": "application/json", ...headers });
+  }
+
+  /** The CSRF token for this browser, read from any page that renders one. */
+  async csrf(pageUrl = "/login") {
+    return csrfFrom((await this.get(pageUrl)).body);
+  }
+
   /** Posts a form found on the page at `pageUrl`, carrying its CSRF token. */
   async submit(pageUrl: string, action: string, fields: Record<string, string>) {
     const page = await this.get(pageUrl);

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { Client, Grant } from "@kingdom-id/db";
 import { SignJWT } from "jose";
 import type { KeyStore } from "../keys/keystore.js";
+import { acrFor } from "../accounts/auth-methods.js";
 import { randomToken } from "../lib/crypto.js";
 import { sessionIdFor } from "./subject.js";
 
@@ -80,6 +81,7 @@ export class TokenService {
         // On refresh this stays the original authentication time (OIDC Core §12.2).
         auth_time: authTime,
         amr: grant.amr,
+        acr: acrFor(grant.amr),
         at_hash: leftHalfHash(accessToken),
         // The session may be gone by the time an offline grant refreshes.
         ...(grant.sessionId ? { sid: sessionIdFor(serverSecret, client.id, grant.sessionId) } : {}),

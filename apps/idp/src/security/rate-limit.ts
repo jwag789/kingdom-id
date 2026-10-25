@@ -74,6 +74,7 @@ export const limits = {
     // the window slides, so a victim is never locked out for long.
     { name: "login:account", key: email.toLowerCase(), limit: 10, windowSeconds: 15 * 60 },
   ],
+  passkeyOptions: (ip: string): Rule[] => [{ name: "passkey:ip", key: ip, limit: 30, windowSeconds: 60 }],
   signup: (ip: string): Rule[] => [{ name: "signup:ip", key: ip, limit: 10, windowSeconds: 60 * 60 }],
   tokenByIp: (ip: string): Rule[] => [{ name: "token:ip", key: ip, limit: 120, windowSeconds: 60 }],
   tokenByClient: (clientId: string): Rule[] => [{ name: "token:client", key: clientId, limit: 600, windowSeconds: 60 }],

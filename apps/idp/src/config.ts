@@ -26,6 +26,11 @@ const schema = z.object({
   // Scales every rate limit. 1 in production; the conformance environment
   // raises it because one test IP signs one user in dozens of times a minute.
   RATE_LIMIT_MULTIPLIER: z.coerce.number().positive().default(1),
+  // Per-app private email addresses (phase 6). Until they exist, no page claims them.
+  EMAIL_RELAY_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
 
   ACCESS_TOKEN_TTL_SECONDS: duration.default(600),

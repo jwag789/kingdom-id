@@ -6,7 +6,7 @@ import { buildRedirect } from "../oauth/authorize.js";
 import { audiences, verifyIdTokenHint } from "../oauth/id-token-hint.js";
 import { sessionIdFor } from "../oauth/subject.js";
 import { cookieOptions } from "../security/cookies.js";
-import { sendPage } from "../views/layout.js";
+import { sendPage, uiFor } from "../views/layout.js";
 import { LogoutPage, MessagePage } from "../views/pages.js";
 
 /** Ends the browser's Kingdom session and the online grants that rode on it. */
@@ -34,10 +34,10 @@ export function registerLogoutRoutes(app: FastifyInstance, ctx: Context) {
   const handler = async (req: FastifyRequest, reply: FastifyReply, params: Params) => {
     const parsed = await parseLogoutRequest(ctx, params);
     if ("error" in parsed) {
-      return sendPage(reply, MessagePage({ title: "Sign-out link not recognized", message: parsed.error, tone: "error" }), 400);
+      return sendPage(reply, MessagePage({ ui: uiFor(ctx, req), title: "Sign-out link not recognized", message: parsed.error, tone: "error" }), 400);
     }
     const active = await ctx.sessions.resolve(req.cookies[ctx.sessionCookie]);
-    if (!active) return finish(reply, parsed);
+    if (!active) return finish(ctx, req, reply, parsed);
 
     // If the app proves it knows this exact session (its ID token's sid), the
     // request is the app acting for the user: sign out without asking.
@@ -45,13 +45,14 @@ export function registerLogoutRoutes(app: FastifyInstance, ctx: Context) {
     const { client, hint } = parsed;
     if (client && hint && hint.sid === sessionIdFor(ctx.serverSecret, client.id, active.session.id)) {
       await signOut(ctx, req, reply);
-      return finish(reply, parsed);
+      return finish(ctx, req, reply, parsed);
     }
 
     if (parsed.redirectUri) req.formActionSources.push(new URL(parsed.redirectUri).origin);
     return sendPage(
       reply,
       LogoutPage({
+        ui: uiFor(ctx, req),
         csrf: ctx.csrf.token(req, reply),
         email: active.user.email,
         appName: client?.name,
@@ -73,11 +74,11 @@ export function registerLogoutRoutes(app: FastifyInstance, ctx: Context) {
     // Re-validate: the hidden fields came back from the browser.
     const parsed = await parseLogoutRequest(ctx, { ...body, id_token_hint: undefined });
     if ("error" in parsed) {
-      return sendPage(reply, MessagePage({ title: "Sign-out link not recognized", message: parsed.error, tone: "error" }), 400);
+      return sendPage(reply, MessagePage({ ui: uiFor(ctx, req), title: "Sign-out link not recognized", message: parsed.error, tone: "error" }), 400);
     }
     if (body.decision !== "logout") return reply.redirect("/account", 303);
     await signOut(ctx, req, reply);
-    return finish(reply, parsed);
+    return finish(ctx, req, reply, parsed);
   });
 }
 
@@ -115,7 +116,7 @@ async function parseLogoutRequest(ctx: Context, params: Params): Promise<LogoutR
   };
 }
 
-function finish(reply: FastifyReply, request: LogoutRequest) {
+function finish(ctx: Context, req: FastifyRequest, reply: FastifyReply, request: LogoutRequest) {
   if (request.redirectUri) return reply.redirect(buildRedirect(request.redirectUri, { state: request.state }), 303);
-  return sendPage(reply, MessagePage({ title: "You're signed out", message: "You've signed out of your Kingdom account." }));
+  return sendPage(reply, MessagePage({ ui: uiFor(ctx, req), title: "You're signed out", message: "You've signed out of your Kingdom account." }));
 }

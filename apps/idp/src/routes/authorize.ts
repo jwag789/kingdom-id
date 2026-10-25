@@ -8,11 +8,12 @@ import {
   buildRedirect,
   parseAuthorizationRequest,
 } from "../oauth/authorize.js";
+import { acrFor } from "../accounts/auth-methods.js";
 import { covers } from "../oauth/consents.js";
 import { audiences, verifyIdTokenHint } from "../oauth/id-token-hint.js";
 import { subjectFor } from "../oauth/subject.js";
 import { limits } from "../security/rate-limit.js";
-import { sendPage } from "../views/layout.js";
+import { sendPage, uiFor } from "../views/layout.js";
 import { MessagePage } from "../views/pages.js";
 
 export function registerAuthorizeRoutes(app: FastifyInstance, ctx: Context) {
@@ -32,7 +33,7 @@ async function authorize(ctx: Context, req: FastifyRequest, reply: FastifyReply,
     ({ client, request } = await parseAuthorizationRequest(params, (id) => ctx.clients.find(id)));
   } catch (err) {
     if (err instanceof UntrustedRedirectError) {
-      return sendPage(reply, MessagePage({ title: err.title, message: err.detail, tone: "error" }), 400);
+      return sendPage(reply, MessagePage({ ui: uiFor(ctx, req), title: err.title, message: err.detail, tone: "error" }), 400);
     }
     if (err instanceof RedirectableError) return redirectError(ctx, reply, err);
     throw err;
@@ -76,6 +77,10 @@ async function mustReauthenticate(
     const age = Math.floor((Date.now() - session.authTime.getTime()) / 1000);
     if (age > request.maxAge) return true;
   }
+  // acr_values is voluntary (OIDC Core §3.1.2.1), but when an app asks for a
+  // level the current session didn't reach, such as a passkey after a
+  // password sign-in, the user gets the chance to step up.
+  if (request.acrValues && !request.acrValues.includes(acrFor(session.amr))) return true;
   if (request.idTokenHint) {
     // A hint for someone else (or an unverifiable one) means the app expects
     // a different user than the one signed in.

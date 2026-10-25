@@ -45,6 +45,5 @@ Anything not listed in `expected-failures.json` / `expected-skips.json` fails th
 | `oidcc-scope-address`, `oidcc-scope-phone`, `oidcc-scope-all` | skipped | Kingdom ID doesn't collect addresses or phone numbers, so it doesn't offer those scopes. |
 | `oidcc-unsigned-request-object-…` | skipped | Request objects aren't supported (`request_parameter_supported: false`); the server rejects them with `request_not_supported`. |
 | `oidcc-scope-profile` | warning | Only `name` and `updated_at` exist for the profile scope; the other profile claims are optional. |
-| `oidcc-ensure-request-with-acr-values-succeeds` | warning | No `acr` claim is issued yet; `acr_values` is a voluntary request. Revisit with passkeys (phase 4). |
 | `oidcc-claims-essential` | warning | The `claims` request parameter isn't supported, as discovery says. |
 | `oidcc-prompt-login`, `oidcc-max-age-1`, `oidcc-ensure-registered-redirect-uri`, `oidcc-ensure-request-object-with-redirect-uri` | review | These need a human to look at a screenshot (a re-login page or an error page). The scripted browser captures them; they're uploaded with the CI artifacts. |

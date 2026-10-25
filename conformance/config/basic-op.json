@@ -42,7 +42,7 @@
             [
               "click",
               "css",
-              "button.primary"
+              "#password-submit, #allow"
             ]
           ]
         },
@@ -54,7 +54,7 @@
             [
               "click",
               "css",
-              "button.primary"
+              "#password-submit, #allow"
             ]
           ]
         },
@@ -109,7 +109,7 @@
                 [
                   "click",
                   "css",
-                  "button.primary"
+                  "#password-submit, #allow"
                 ]
               ]
             },
@@ -121,7 +121,7 @@
                 [
                   "click",
                   "css",
-                  "button.primary"
+                  "#password-submit, #allow"
                 ]
               ]
             },
@@ -176,7 +176,7 @@
                 [
                   "click",
                   "css",
-                  "button.primary"
+                  "#password-submit, #allow"
                 ]
               ]
             },
@@ -188,7 +188,7 @@
                 [
                   "click",
                   "css",
-                  "button.primary"
+                  "#password-submit, #allow"
                 ]
               ]
             },

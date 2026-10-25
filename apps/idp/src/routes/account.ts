@@ -1,11 +1,13 @@
 import type { User } from "@kingdom-id/db";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { PasskeyError } from "../accounts/passkeys.js";
 import { EmailTakenError, signupSchema } from "../accounts/users.js";
 import type { Context } from "../context.js";
 import { cookieOptions } from "../security/cookies.js";
 import { limits } from "../security/rate-limit.js";
+import { AMR_PASSWORD } from "../accounts/auth-methods.js";
 import { signOut } from "./logout.js";
-import { sendPage } from "../views/layout.js";
+import { sendPage, uiFor } from "../views/layout.js";
 import { AccountPage, LoginPage, MessagePage, SignupPage } from "../views/pages.js";
 
 const GENERIC_LOGIN_ERROR = "That email and password don't match a Kingdom account.";
@@ -64,12 +66,12 @@ function setSessionCookie(ctx: Context, reply: FastifyReply, token: string) {
 }
 
 /** Signs the browser in as `user`. Always a new session ID, so a planted cookie can't be fixed. */
-export async function newSession(ctx: Context, req: FastifyRequest, reply: FastifyReply, user: User) {
+export async function newSession(ctx: Context, req: FastifyRequest, reply: FastifyReply, user: User, amr: string[]) {
   const previous = await ctx.sessions.resolve(req.cookies[ctx.sessionCookie]);
   if (previous) await ctx.sessions.revoke(previous.session.id);
   const { token, session } = await ctx.sessions.create({
     userId: user.id,
-    amr: ["pwd"],
+    amr,
     ip: req.ip,
     ...(req.headers["user-agent"] ? { userAgent: req.headers["user-agent"] } : {}),
   });
@@ -80,9 +82,10 @@ export async function newSession(ctx: Context, req: FastifyRequest, reply: Fasti
 /** Sign-in, sign-up and account pages reached directly rather than from an app. */
 export function registerAccountRoutes(app: FastifyInstance, ctx: Context) {
   const loginPage = (req: FastifyRequest, reply: FastifyReply, extra: { email?: string; error?: string } = {}) =>
-    LoginPage({ action: "/login", signupHref: "/signup", csrf: ctx.csrf.token(req, reply), ...extra });
+    LoginPage({ ui: uiFor(ctx, req), passwordAction: "/login", signupHref: "/signup", csrf: ctx.csrf.token(req, reply), ...extra });
   const signupPage = (req: FastifyRequest, reply: FastifyReply) => ({
-    action: "/signup",
+    ui: uiFor(ctx, req),
+    passwordAction: "/signup",
     loginHref: "/login",
     csrf: ctx.csrf.token(req, reply),
   });
@@ -94,7 +97,7 @@ export function registerAccountRoutes(app: FastifyInstance, ctx: Context) {
     ctx.csrf.verify(req);
     const result = await attemptLogin(ctx, req);
     if (!result.ok) return sendPage(reply, loginPage(req, reply, { email: result.email, error: result.error }), 401);
-    await newSession(ctx, req, reply, result.user);
+    await newSession(ctx, req, reply, result.user, AMR_PASSWORD);
     return reply.redirect("/account", 303);
   });
 
@@ -105,18 +108,38 @@ export function registerAccountRoutes(app: FastifyInstance, ctx: Context) {
     if (!result.ok) {
       return sendPage(reply, SignupPage({ ...signupPage(req, reply), values: result.values, errors: result.errors }), 400);
     }
-    await newSession(ctx, req, reply, result.user);
+    await newSession(ctx, req, reply, result.user, AMR_PASSWORD);
     return reply.redirect("/account", 303);
   });
 
-  app.get("/account", async (req, reply) => {
+  const accountPage = async (req: FastifyRequest, reply: FastifyReply, user: User, extra: { notice?: string; error?: string } = {}) =>
+    AccountPage({
+      ui: uiFor(ctx, req),
+      csrf: ctx.csrf.token(req, reply),
+      user: { name: user.name, email: user.email, emailVerified: user.emailVerified, hasPassword: !!user.passwordHash },
+      passkeys: await ctx.passkeys.listForUser(user.id),
+      ...extra,
+    });
+
+  app.get<{ Querystring: { added?: string } }>("/account", async (req, reply) => {
     const active = await ctx.sessions.resolve(req.cookies[ctx.sessionCookie]);
     if (!active) return reply.redirect("/login", 303);
-    const { user } = active;
-    return sendPage(
-      reply,
-      AccountPage({ name: user.name, email: user.email, emailVerified: user.emailVerified, csrf: ctx.csrf.token(req, reply) }),
-    );
+    const notice = req.query.added === "passkey" ? "Passkey added. You can use it to sign in now." : undefined;
+    return sendPage(reply, await accountPage(req, reply, active.user, notice ? { notice } : {}));
+  });
+
+  app.post<{ Params: { id: string } }>("/account/passkeys/:id/delete", async (req, reply) => {
+    ctx.csrf.verify(req);
+    const active = await ctx.sessions.resolve(req.cookies[ctx.sessionCookie]);
+    if (!active) return reply.redirect("/login", 303);
+    try {
+      await ctx.passkeys.remove(active.user, req.params.id);
+    } catch (err) {
+      if (err instanceof PasskeyError) return sendPage(reply, await accountPage(req, reply, active.user, { error: err.message }), 400);
+      throw err;
+    }
+    req.log.info({ event: "passkey_removed", userId: active.user.id }, "passkey removed");
+    return reply.redirect("/account", 303);
   });
 
   app.post("/logout", async (req, reply) => {
@@ -130,11 +153,11 @@ export function registerAccountRoutes(app: FastifyInstance, ctx: Context) {
     if (!userId) {
       return sendPage(
         reply,
-        MessagePage({ title: "Link expired", message: "This verification link is invalid or has already been used.", tone: "error" }),
+        MessagePage({ ui: uiFor(ctx, req), title: "Link expired", message: "This verification link is invalid or has already been used.", tone: "error" }),
         400,
       );
     }
     await ctx.users.markEmailVerified(userId);
-    return sendPage(reply, MessagePage({ title: "Email verified", message: "Thanks. Your email address is confirmed." }));
+    return sendPage(reply, MessagePage({ ui: uiFor(ctx, req), title: "Email verified", message: "Thanks. Your email address is confirmed." }));
   });
 }

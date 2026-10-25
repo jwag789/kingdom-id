@@ -1,4 +1,5 @@
 import type { Client } from "@kingdom-id/db";
+import { ACR_VALUES_SUPPORTED } from "../accounts/auth-methods.js";
 import { OAuthError } from "../lib/errors.js";
 import { isValidChallenge } from "./pkce.js";
 import { parseScope } from "./scopes.js";
@@ -15,6 +16,8 @@ export interface AuthorizationRequest {
   maxAge?: number;
   loginHint?: string;
   idTokenHint?: string;
+  /** Requested acr values Kingdom ID supports, in preference order. Unknown values are dropped. */
+  acrValues?: string[];
 }
 
 const PROMPTS = ["none", "login", "consent", "select_account", "create"] as const;
@@ -114,6 +117,8 @@ export async function parseAuthorizationRequest(
   if (prompt.some((v) => !PROMPTS.includes(v))) fail("invalid_request", "unsupported prompt value");
   if (prompt.includes("none") && prompt.length > 1) fail("invalid_request", "prompt=none can't be combined");
 
+  const acrValues = (p.acr_values ?? "").split(" ").filter((v) => (ACR_VALUES_SUPPORTED as readonly string[]).includes(v));
+
   let maxAge: number | undefined;
   if (p.max_age !== undefined) {
     if (!/^\d{1,10}$/.test(p.max_age)) fail("invalid_request", "max_age must be a non-negative integer");
@@ -133,6 +138,7 @@ export async function parseAuthorizationRequest(
       ...(maxAge !== undefined ? { maxAge } : {}),
       ...(p.login_hint ? { loginHint: p.login_hint.slice(0, 254) } : {}),
       ...(p.id_token_hint ? { idTokenHint: p.id_token_hint } : {}),
+      ...(acrValues.length ? { acrValues } : {}),
     },
   };
 }

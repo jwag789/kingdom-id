@@ -5,9 +5,18 @@
 Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'd add any OIDC provider. Users get one account across all of them, with privacy built in:
 
 - **Private by default with third parties, unified across Kingdom apps.** Third-party apps each see their own pairwise `sub`, so they can't link a user by ID. Kingdom's own apps share one, so perks and the dashboard follow the person. *(Built.)*
-- **Passkey-first sign-in**, with a password as the fallback. *(Phase 4.)*
+- **Passkey-first sign-in**, with a password as the fallback. *(Built.)*
 - **A private relay email per app**, so the real address never leaves Kingdom. *(Phase 6.)*
 - **One dashboard** listing every connected app, what it received, and a one-click disconnect. *(Phase 5.)*
+
+<p align="center">
+  <img src="docs/images/sign-in-dark.png" alt="Kingdom ID sign-in: the Kingdom brand story on the left; on the right a card co-branded with the requesting app, with 'Continue with a passkey' as the primary action" width="820">
+</p>
+<p align="center">
+  <img src="docs/images/consent-light.png" alt="Consent screen in light mode, listing exactly what the app will receive" width="560">
+  &nbsp;
+  <img src="docs/images/sign-up-phone.png" alt="Passkey sign-up on a phone" width="200">
+</p>
 
 > 🎬 _Demo GIF placeholder: sign-in from the demo app, consent, and return._
 
@@ -18,7 +27,7 @@ Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'
 | 1 | Core provider: discovery, JWKS with rotation, code flow with PKCE, ID tokens, userinfo, consent, signup and login, demo client | ✅ Done |
 | 2 | Refresh tokens with rotation and reuse detection, revocation, introspection, logout | ✅ Done |
 | 3 | OpenID Foundation conformance suite in CI | ✅ Done |
-| 4 | Passkeys and the designed sign-in experience | Planned |
+| 4 | Passkeys and the designed sign-in experience | ✅ Done |
 | 5 | "Your Kingdom" dashboard | Planned |
 | 6 | Email relay via AWS SES | Planned |
 | 7 | Security event pipeline (Redis Streams) | Planned |
@@ -80,11 +89,13 @@ Open http://localhost:4001 and click **Sign in with Kingdom**.
 
 ```bash
 pnpm test        # unit + integration (Testcontainers starts real Postgres and Redis)
-pnpm test:e2e    # Playwright through the demo client, with axe-core WCAG 2.1 AA checks
+pnpm test:e2e    # Playwright through the demo client: passkeys via a virtual authenticator, axe-core WCAG 2.1 AA checks
 ```
 
 - **Unit tests** cover PKCE (including the RFC 7636 Appendix B vector), authorization request validation, redirect URI rules, key encryption and config.
 - **Integration tests** run the real app against real Postgres and Redis: the full flow, key rotation (including five instances rotating at once), refresh token rotation and reuse detection (including concurrent exchanges), code replay, revocation, introspection, logout, token endpoint attacks, CSRF, cookies, rate limits and headers.
+- **Passkey tests** use a software authenticator that produces real WebAuthn attestations and assertions, so the server's verification runs unmodified: single-use and browser-bound challenges, wrong-origin (phishing) assertions, mismatched user handles, counter rollback, and required user verification.
+- **Browser e2e tests** sign up and back in with a passkey through Chromium's virtual authenticator, check every page against WCAG 2.1 AA in dark and light mode at desktop and phone widths, check there's no horizontal scroll on phones, confirm `prefers-reduced-motion` stops the animation, and confirm the password path works with JavaScript disabled.
 - **An interop test** drives everything with [`openid-client`](https://github.com/panva/openid-client), an independent certified relying-party library: discovery, authorization, token exchange, userinfo, refresh, introspection, revocation and RP-initiated logout. This shows the provider is interoperable, not just consistent with itself.
 
 CI runs lint, typecheck, build, the test suite and the browser e2e on every push.
@@ -108,9 +119,11 @@ CI runs lint, typecheck, build, the test suite and the browser e2e on every push
 | Bearer token usage at UserInfo | RFC 6750 |
 | Authorization response `iss` parameter | RFC 9207 |
 | `prompt=create` | OpenID Connect Initiating User Registration 1.0 |
+| Passkeys: discoverable credentials, user verification, conditional mediation (autofill) | W3C Web Authentication Level 3 |
+| `amr` values (`pwd`, `hwk`, `swk`, `user`, `mfa`) | RFC 8176 |
+| `acr` `phr` (phishing-resistant) and step-up via `acr_values` | OpenID EAP ACR Values 1.0; OpenID Connect Core 1.0 §3.1.2.1 |
 | Security best current practice | RFC 9700 (OAuth 2.0 Security BCP) |
 
-Planned: WebAuthn Level 3 (phase 4).
 
 ## Conformance
 
@@ -151,6 +164,9 @@ _Phase 8 adds a k6 load test of the token endpoint across two instances. Results
 | Login CSRF or hijacking an interaction | Each interaction is bound to the browser that started it, and completes exactly once. |
 | Session fixation | A new session ID on every sign-in; the previous session is revoked. |
 | Session theft from the database | Only SHA-256 hashes of session tokens and client secrets are stored. |
+| Phishing | Passkeys are bound to Kingdom ID's origin by the browser, so a look-alike site can't obtain a usable assertion (tested). Apps can demand this with `acr_values=phr`, which steps a password session up to a passkey. |
+| WebAuthn replay or cross-browser relay | Challenges are random, single-use (`GETDEL`), expire in five minutes, and are bound to the browser that requested them. The returned user handle must match the credential's owner, and a signature counter that goes backwards is rejected. |
+| Locking yourself out | The last passkey of a passwordless account can't be removed. |
 | Credential stuffing and brute force | Sliding-window limits per IP and per account at login, per IP at authorize, signup and userinfo, and per IP and per client at the token endpoint. |
 | Account enumeration | Login errors and timing are uniform (argon2 runs against a dummy hash for unknown accounts). Signup does reveal that an email is taken; this is bounded by rate limits, and fully avoiding it requires email-first verification. |
 | Password database compromise | argon2id with OWASP baseline parameters (19 MiB, t=2, p=1). |
@@ -169,7 +185,15 @@ against the access token (OIDC Core §5.4). ID tokens get passed around as proof
 
 **Fastify, not Next.js or Express.** An identity provider is mostly protocol endpoints where the details matter: exact status codes, `Cache-Control: no-store`, form-encoded bodies, `WWW-Authenticate` challenges. Fastify keeps those explicit, has well-defined hooks for CSRF, rate limits and headers, and is fast.
 
-**Server-rendered pages, no SPA.** The sign-in pages are Preact components rendered to HTML on the server. That allows a strict CSP and auto-escaping, with no client bundle to audit. JavaScript arrives only where WebAuthn needs it (phase 4).
+**Server-rendered pages, no SPA.** The sign-in pages are Preact components rendered to HTML on the server. That allows a strict CSP and auto-escaping, with no client bundle to audit. The only script is `passkey.js`: about 200 lines of plain JavaScript, no dependencies and no build step, loaded with a CSP nonce.
+
+**Passkeys as progressive enhancement.** Every page works without JavaScript: the email and password forms render open. When the browser supports WebAuthn, `passkey.js` reveals the passkey button, folds the password form behind "Use email instead", and offers passkeys in the email field's autofill (conditional mediation). Passkeys are discoverable credentials with user verification required, so signing in needs no username and counts as multi-factor (`amr: [hwk|swk, user, mfa]`).
+
+**Passkey-only accounts are first class.** Signing up with a passkey creates an account with no password at all. The WebAuthn user handle is a random value rather than the internal user ID, so authenticators never hold it.
+
+**Hand-written CSS on the Kingdom Web Builders tokens.** Five screens didn't justify a Tailwind build step in the provider's image. The palette, type (Inter, Newsreader) and motion come straight from the KWB tokens, the fonts are self-hosted so the sign-in page makes no third-party requests, and the brand panel's aurora is transform-only and switched off under `prefers-reduced-motion`.
+
+**No privacy claims ahead of the feature.** The design calls for a note that apps receive a private email mask. That note, and the matching line in the brand story, render only when `EMAIL_RELAY_ENABLED` is on, which phase 6 does.
 
 **Drizzle on postgres.js.** Typed queries that stay close to SQL, and migrations committed as reviewable SQL. Invariants like "one active key per algorithm" are partial unique indexes, so the database enforces them rather than relying on the rotation code being careful.
 
