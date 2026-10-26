@@ -1,24 +1,57 @@
-# Kingdom ID
-
-**Kingdom ID, by Kingdom Web Builders.** One account for every Kingdom app, served by an OpenID Connect provider written from the specs.
-
-Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'd add any OIDC provider. Users get one account across all of them, with privacy built in:
-
-- **Private by default with third parties, unified across Kingdom apps.** Third-party apps each see their own pairwise `sub`, so they can't link a user by ID. Kingdom's own apps share one, so perks and the dashboard follow the person.
-- **Passkey-first sign-in**, with a password as the fallback.
-- **A private relay email per app**, so the real address never leaves Kingdom. Replies go back out through the relay too.
-- **"Your Kingdom", one dashboard** for every connected app, what each one received, perks that carry across apps, and a security timeline. One click disconnects an app.
-
 <p align="center">
-  <img src="docs/images/sign-in-dark.png" alt="Kingdom ID sign-in: the Kingdom brand story on the left; on the right a card co-branded with the requesting app, with 'Continue with a passkey' as the primary action" width="820">
-</p>
-<p align="center">
-  <img src="docs/images/consent-light.png" alt="Consent screen in light mode, listing exactly what the app will receive" width="560">
-  &nbsp;
-  <img src="docs/images/sign-up-phone.png" alt="Passkey sign-up on a phone" width="200">
+  <img src="docs/images/banner.jpg" alt="Kingdom ID: One key to every Kingdom app. An OpenID Connect provider written from the specs, with passkeys, a private email for every app, and one dashboard for everything you've connected." width="100%">
 </p>
 
-> 🎬 _Demo GIF placeholder: sign-in from the demo app, consent, and return._
+<p align="center">
+  <a href="https://github.com/jwag789/kingdom-id/actions/workflows/ci.yml"><img src="https://github.com/jwag789/kingdom-id/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="#conformance"><img src="https://img.shields.io/badge/OpenID%20Basic%20OP-0%20failures-0054EE" alt="OpenID Foundation Basic OP plan: 0 failures"></a>
+  <a href="#standards-implemented"><img src="https://img.shields.io/badge/specs-24%20implemented-0A0F24" alt="24 specifications implemented"></a>
+  <a href="#passkeys"><img src="https://img.shields.io/badge/passkeys-WebAuthn%20L3-22D3EE" alt="Passkeys: W3C WebAuthn Level 3"></a>
+  <img src="https://img.shields.io/badge/node-24-3A4463" alt="Node 24">
+  <img src="https://img.shields.io/badge/TypeScript-strict-3178C6" alt="TypeScript strict">
+</p>
+
+<p align="center">
+  <a href="#see-it-work"><b>Demo</b></a> ·
+  <a href="#quick-start"><b>Quick start</b></a> ·
+  <a href="#add-sign-in-with-kingdom-to-your-app"><b>Add it to your app</b></a> ·
+  <a href="#architecture"><b>Architecture</b></a> ·
+  <a href="#security"><b>Security</b></a> ·
+  <a href="#documentation"><b>Docs</b></a>
+</p>
+
+**Kingdom ID** is the account system behind every [Kingdom Web Builders](https://kingdomwebbuilders.com) app: one sign-in for Cappuccino, InkSpirit and whatever comes next. It's a complete OAuth 2.0 and OpenID Connect provider, **written directly from the RFCs with no OIDC library**, and apps add "Sign in with Kingdom" the way they'd add any OIDC provider.
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>🔑 Passkey-first</h3>
+      <p>Sign in with a face, fingerprint or device PIN. Nothing to phish, nothing to forget. Passwords remain as a fallback, and apps can demand a phishing-resistant sign-in with <code>acr_values</code>.</p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>🎭 Private by default</h3>
+      <p>Third-party apps each get their own pairwise user ID, so they can't link anyone across apps. Kingdom's own apps share one, so perks and history follow the person.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>✉️ A private email for every app</h3>
+      <p>Each app gets its own relay address. Mail reaches the member, replies go back out through the relay, and the real address never leaves Kingdom.</p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>👑 One dashboard for everything</h3>
+      <p><b>Your Kingdom</b> shows every connected app, exactly what each one received, perks that carry across apps, and a security timeline. One click disconnects an app, everywhere.</p>
+    </td>
+  </tr>
+</table>
+
+## See it work
+
+<p align="center">
+  <img src="docs/images/demo.gif" alt="A demo app's official Sign in with Kingdom button leads to Kingdom ID's co-branded sign-in page. A new member creates an account with a passkey, approves exactly what the app will receive, lands back in the app signed in, then opens the Your Kingdom dashboard showing the connected app." width="100%">
+</p>
+
+<p align="center"><sub>Real recording: the demo app → passkey sign-up → consent → back in the app → the <b>Your Kingdom</b> dashboard.</sub></p>
 
 ## At a glance
 
@@ -29,6 +62,47 @@ Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'
 | **Security** | Mandatory PKCE, refresh rotation with reuse detection, passkeys, a Redis Streams detection pipeline, and a [threat model](#threat-model). |
 | **Scale** | Stateless: [2.06× throughput](#benchmarks) from a second instance, proven [across instances with no sticky sessions](#scaling-out). |
 | **Tests** | 196 unit and integration tests on real Postgres and Redis, 23 browser end-to-end tests with WCAG 2.1 AA checks, and interop with the certified `openid-client`. |
+
+<p align="center">
+  <img src="docs/images/sign-in-dark.png" alt="Kingdom ID sign-in: the Kingdom brand story on the left; on the right a card co-branded with the requesting app, with 'Continue with a passkey' as the primary action" width="820">
+</p>
+<p align="center">
+  <img src="docs/images/consent-light.png" alt="Consent screen in light mode, listing exactly what the app will receive" width="560">
+  &nbsp;
+  <img src="docs/images/sign-up-phone.png" alt="Passkey sign-up on a phone" width="200">
+</p>
+
+## Quick start
+
+Requires Node 24, pnpm (`corepack enable`) and Docker.
+
+```bash
+cp .env.example .env      # then fill KEY_ENCRYPTION_KEY and SERVER_SECRET with: openssl rand -base64 32
+docker compose up -d      # Postgres on :54320, Redis on :63790
+pnpm install
+pnpm seed                 # registers the demo client; copy the printed secret into .env as DEMO_CLIENT_SECRET
+pnpm -s kingdom help      # the operator CLI
+pnpm dev                  # Kingdom ID on :4000, demo client on :4001
+pnpm --filter @kingdom-id/idp relay:simulate <private-address>   # push a test email through the relay, no AWS needed
+```
+
+Open http://localhost:4001 and click **Sign in with Kingdom**.
+
+## Add Sign in with Kingdom to your app
+
+<p align="center">
+  <img src="docs/images/sign-in-button.png" alt="The official Sign in with Kingdom button in its dark, blue, light and outline looks, on light and dark backgrounds" width="640">
+</p>
+
+Every Kingdom ID serves the **official button** as one small stylesheet: no script, no images, and the same look in every app.
+
+```html
+<link rel="stylesheet" href="https://id.kingdomwebbuilders.com/brand/button.css">
+
+<button type="submit" class="kingdom-button">Sign in with Kingdom</button>
+```
+
+Pick a look, size and label in the button builder at **`/brand`** on any Kingdom ID, then wire up the flow with any OpenID Connect client library. The [Next.js guide](docs/integrations/nextjs.md) walks through it with Auth.js, and its code is the [Cappuccino example](examples/cappuccino), which CI builds and signs into on every push.
 
 ## Documentation
 
@@ -59,24 +133,6 @@ Apps like Cappuccino and InkSpirit add "Sign in with Kingdom" the same way they'
 | **Keys** | Passkeys (add, remove, see when each was last used) and whether a password is set. |
 
 **Admin** (`/admin`) manages each app's perks: create, pause, delete, and grant manual perks. It needs an account flagged as admin from the command line (`pnpm kingdom users admin you@example.com`) *and* a session signed in with a passkey.
-
-## Security event pipeline
-
-Every security-relevant action (sign-ins and failures, new passkeys, connected and disconnected apps, token reuse, relay spoofing) is published to a **Redis Stream** at the moment it happens. The request never waits on Postgres or on detection. Every API instance also runs a consumer in one **consumer group**, so each event is handled by exactly one instance. That instance persists it and runs the detection rules.
-
-| Rule | Fires when | Severity | Seen by |
-|---|---|---|---|
-| Failed sign-in burst | 5 failed sign-ins on one account within 10 minutes | high | the member (Watchtower) and admins |
-| Credential stuffing | 20 failed sign-ins from one IP within 10 minutes, across any accounts | critical | admins |
-| Refresh token reuse | a spent refresh token is presented again (its family was revoked) | critical | the member and admins |
-| Authorization code replay | a code is redeemed twice (its tokens were revoked) | high | the member and admins |
-| Relay spoofing | mail impersonating a member tries to leave through their private address | medium | the member and admins |
-| New country | a sign-in from a country this account hasn't signed in from in 180 days (needs a trusted CDN country header) | medium | the member and admins |
-| New network | a sign-in from a network (/24 IPv4, /48 IPv6) this account hasn't used in 180 days | low | the member and admins |
-
-Each alert is raised once per rule and subject per window, so a burst produces one alert, not fifty. Admins see open alerts, acknowledge them, and watch pipeline health (lag, in-flight, dead letters) at `/admin/alerts`.
-
-**Delivery guarantees.** At-least-once: events persist by ID, so a redelivery is harmless. An entry a crashed consumer read but never acknowledged is reclaimed by another instance after 30 seconds (`XAUTOCLAIM`). An event that fails five times is moved to a dead-letter stream, so a poison event can't stall the pipeline. Approximate trimming (`MAXLEN ~`) bounds the stream, because Postgres is the record and the stream is a buffer.
 
 ## Architecture
 
@@ -123,27 +179,11 @@ flowchart LR
 
 The API keeps nothing in process memory that matters. Anything durable lives in Postgres and anything short-lived in Redis, so any instance can serve any request. [Proven below](#scaling-out) with two instances behind a load balancer.
 
-## The `kingdom` CLI
+<details>
+<summary><b>Scaling out: two instances, no sticky sessions</b></summary>
+<br>
 
-Operators manage a deployment from the command line. The same binary ships in the production image, so it runs where the server runs (`node dist/cli/bin.js …`); in this repo, `pnpm -s kingdom …`.
-
-```text
-kingdom clients list [--json]
-kingdom clients create --name <name> --redirect-uri <uri>... [--public] [--first-party]
-                       [--post-logout-uri <uri>...] [--backchannel-logout-uri <uri>]
-                       [--auth-method basic|post] [--logo-uri <uri>]
-                       [--id-token-alg RS256|ES256] [--subject pairwise|public] [--json]
-kingdom keys list [--json]
-kingdom keys rotate [--alg RS256|ES256]
-kingdom users create --email <e> --name <n> (--password-stdin | --generate-password) [--verified] [--admin]
-kingdom users admin <email> [--revoke]
-kingdom token decode <jwt>
-kingdom token verify <jwt> [--issuer <url>] [--audience <aud>]
-```
-
-Client secrets are printed once (only a hash is stored). Passwords are read from stdin or generated, never taken as arguments, where shell history and `ps` would see them. `token verify` fetches keys the way a relying party would, from the issuer's discovery document, and exits non-zero on any failure, so it works in scripts. Usage errors exit 2; operational errors exit 1.
-
-## Scaling out
+### Scaling out
 
 `scaling/` runs **two Kingdom ID instances behind a round-robin load balancer** (Caddy, TLS), sharing one Postgres and one Redis, with **no sticky sessions**. `scaling/run-proof.sh` then checks, against the running stack:
 
@@ -154,114 +194,39 @@ Client secrets are printed once (only a hash is stored). Passwords are read from
 
 This found one real multi-instance bug, now fixed and tested: instances booting together raced to run migrations. Migrations now take a Postgres advisory lock.
 
-## Quick start
+</details>
 
-Requires Node 24, pnpm (`corepack enable`) and Docker.
+## Security
 
-```bash
-cp .env.example .env      # then fill KEY_ENCRYPTION_KEY and SERVER_SECRET with: openssl rand -base64 32
-docker compose up -d      # Postgres on :54320, Redis on :63790
-pnpm install
-pnpm seed                 # registers the demo client; copy the printed secret into .env as DEMO_CLIENT_SECRET
-pnpm -s kingdom help      # the operator CLI
-pnpm dev                  # Kingdom ID on :4000, demo client on :4001
-pnpm --filter @kingdom-id/idp relay:simulate <private-address>   # push a test email through the relay, no AWS needed
-```
+Kingdom ID is built for the attacks an identity provider actually faces. The short version: PKCE on every client, single-use 60-second codes, refresh token rotation that revokes the whole family on reuse, passkeys bound to Kingdom's origin, encrypted and rotating signing keys, and a strict nonce-based Content Security Policy. Found a vulnerability? See [SECURITY.md](SECURITY.md) for private reporting.
 
-Open http://localhost:4001 and click **Sign in with Kingdom**.
+### Passkeys
 
-## Tests
+Passkeys are discoverable credentials with user verification required, so signing in needs no username and counts as multi-factor (`amr: [hwk|swk, user, mfa]`). Signing up with a passkey creates an account with no password at all, and every page still works without JavaScript.
 
-```bash
-pnpm test        # unit + integration (Testcontainers starts real Postgres and Redis)
-pnpm test:e2e    # Playwright through the demo client: passkeys via a virtual authenticator, axe-core WCAG 2.1 AA checks
-```
+### Security event pipeline
 
-- **Unit tests** cover PKCE (including the RFC 7636 Appendix B vector), authorization request validation, redirect URI rules, key encryption and config.
-- **Integration tests** run the real app against real Postgres and Redis: the full flow, key rotation (including five instances rotating at once), refresh token rotation and reuse detection (including concurrent exchanges), code replay, revocation, introspection, logout, back-channel logout (signed logout tokens, retries, dead-lettering), token endpoint attacks, CSRF, cookies, rate limits and headers.
-- **Passkey tests** use a software authenticator that produces real WebAuthn attestations and assertions, so the server's verification runs unmodified: single-use and browser-bound challenges, wrong-origin (phishing) assertions, mismatched user handles, counter rollback, and required user verification.
-- **Browser e2e tests** sign up and back in with a passkey through Chromium's virtual authenticator, check every page against WCAG 2.1 AA in dark and light mode at desktop and phone widths, check there's no horizontal scroll on phones, confirm `prefers-reduced-motion` stops the animation, and confirm the password path works with JavaScript disabled.
-- **Dashboard tests** check that disconnecting an app really kills its refresh families and access tokens while other apps keep working, every perk rule (including backdated consents), that third-party apps can't obtain the `perks` scope, that each user sees only their own Watchtower, and that admin is closed to non-admins and to admins without a passkey session.
-- **Pipeline tests** check that publishing doesn't write until the consumer runs, that redelivery persists once, that three consumers split thirty events with none handled twice, that a crashed consumer's unacknowledged entries are reclaimed, that a poison event is dead-lettered while later events still flow, and every detection rule including de-duplication and the trusted-proxy rule for country headers.
-- **CLI tests** run each command in-process against a fresh database: secrets shown once, usage errors (exit 2) and failures (exit 1), key rotation states, passwords only from stdin or generated, and `token verify` against a live issuer, including tampered signatures and wrong audiences.
-- **A migration race test** runs four migrators against one empty database at once (it fails without the advisory lock).
-- **An interop test** drives everything with [`openid-client`](https://github.com/panva/openid-client), an independent certified relying-party library: discovery, authorization, token exchange, userinfo, refresh, introspection, revocation and RP-initiated logout. This shows the provider is interoperable, not just consistent with itself.
+Every security-relevant action (sign-ins and failures, new passkeys, connected and disconnected apps, token reuse, relay spoofing) is published to a **Redis Stream** at the moment it happens. The request never waits on Postgres or on detection. Every API instance also runs a consumer in one **consumer group**, so each event is handled by exactly one instance. That instance persists it and runs the detection rules.
 
-CI runs lint, typecheck, build, the test suite and the browser e2e on every push.
+| Rule | Fires when | Severity | Seen by |
+|---|---|---|---|
+| Failed sign-in burst | 5 failed sign-ins on one account within 10 minutes | high | the member (Watchtower) and admins |
+| Credential stuffing | 20 failed sign-ins from one IP within 10 minutes, across any accounts | critical | admins |
+| Refresh token reuse | a spent refresh token is presented again (its family was revoked) | critical | the member and admins |
+| Authorization code replay | a code is redeemed twice (its tokens were revoked) | high | the member and admins |
+| Relay spoofing | mail impersonating a member tries to leave through their private address | medium | the member and admins |
+| New country | a sign-in from a country this account hasn't signed in from in 180 days (needs a trusted CDN country header) | medium | the member and admins |
+| New network | a sign-in from a network (/24 IPv4, /48 IPv6) this account hasn't used in 180 days | low | the member and admins |
 
-## Standards implemented
+Each alert is raised once per rule and subject per window, so a burst produces one alert, not fifty. Admins see open alerts, acknowledge them, and watch pipeline health (lag, in-flight, dead letters) at `/admin/alerts`.
 
-| Feature | Specification |
-|---|---|
-| Authorization code grant | RFC 6749 §4.1 |
-| Refresh tokens with rotation and reuse detection | RFC 6749 §6; RFC 9700 §4.14.2 |
-| Token revocation | RFC 7009 |
-| Token introspection | RFC 7662 |
-| RP-initiated logout | OpenID Connect RP-Initiated Logout 1.0 |
-| Back-channel logout on sign-out, disconnect and token theft | OpenID Connect Back-Channel Logout 1.0 |
-| `offline_access` | OpenID Connect Core 1.0 §11 |
-| PKCE, S256 only, required for every client | RFC 7636; RFC 9700 §2.1.1 |
-| ID tokens, UserInfo, `prompt`, `max_age`, `id_token_hint`, `nonce`, `at_hash` | OpenID Connect Core 1.0 |
-| Pairwise subject identifiers | OpenID Connect Core 1.0 §8.1 |
-| Discovery | OpenID Connect Discovery 1.0; RFC 8414 |
-| JWKS | RFC 7517 (JWK), RFC 7638 (thumbprint `kid`s) |
-| JWT access tokens (`typ: at+jwt`) | RFC 9068 |
-| Bearer token usage at UserInfo | RFC 6750 |
-| Email relay: header rewriting, encoded display names, sender authentication | RFC 5322, RFC 2047, SPF (RFC 7208), DKIM (RFC 6376), DMARC (RFC 7489) |
-| Inbound delivery from SES | Amazon SNS message signatures (versions 1 and 2) |
-| Authorization response `iss` parameter | RFC 9207 |
-| `prompt=create` | OpenID Connect Initiating User Registration 1.0 |
-| Passkeys: discoverable credentials, user verification, conditional mediation (autofill) | W3C Web Authentication Level 3 |
-| `amr` values (`pwd`, `hwk`, `swk`, `user`, `mfa`) | RFC 8176 |
-| `acr` `phr` (phishing-resistant) and step-up via `acr_values` | OpenID EAP ACR Values 1.0; OpenID Connect Core 1.0 §3.1.2.1 |
-| Security best current practice | RFC 9700 (OAuth 2.0 Security BCP) |
+**Delivery guarantees.** At-least-once: events persist by ID, so a redelivery is harmless. An entry a crashed consumer read but never acknowledged is reclaimed by another instance after 30 seconds (`XAUTOCLAIM`). An event that fails five times is moved to a dead-letter stream, so a poison event can't stall the pipeline. Approximate trimming (`MAXLEN ~`) bounds the stream, because Postgres is the record and the stream is a buffer.
 
+<details>
+<summary><b>Threat model: every threat and its mitigation</b></summary>
+<br>
 
-## Conformance
-
-Every CI run builds Kingdom ID from the production `Dockerfile`, puts it behind TLS, and runs the
-[OpenID Foundation conformance suite](https://gitlab.com/openid/conformance-suite)'s **Basic OP certification plan**
-(`release-v5.3.3`, discovery + static clients) against it. The suite's scripted browser signs in through the real login
-and consent pages. Details and the full reasoning for every non-pass are in [`conformance/README.md`](conformance/README.md).
-
-**Latest result** ([CI run 40189242195](https://github.com/jwag789/kingdom-id/actions/runs/40189242195)): 35 test modules, 1,758 conditions checked, **0 failures**.
-
-| Result | Modules |
-|---|---|
-| ✅ Passed (25) | `oidcc-server`, `oidcc-server-client-secret-post`, `oidcc-response-type-missing`, `oidcc-userinfo-get`, `oidcc-userinfo-post-header`, `oidcc-userinfo-post-body`, `oidcc-ensure-request-without-nonce-succeeds-for-code-flow`, `oidcc-scope-email`, `oidcc-alternate-happy-flow`, `oidcc-display-page`, `oidcc-display-popup`, `oidcc-prompt-none-not-logged-in`, `oidcc-prompt-none-logged-in`, `oidcc-max-age-10000`, `oidcc-ensure-request-with-unknown-parameter-succeeds`, `oidcc-id-token-hint`, `oidcc-login-hint`, `oidcc-ui-locales`, `oidcc-claims-locales`, `oidcc-ensure-request-with-acr-values-succeeds`, `oidcc-codereuse`, `oidcc-codereuse-30seconds`, `oidcc-ensure-post-request-succeeds`, `oidcc-refresh-token`, `oidcc-ensure-request-with-valid-pkce-succeeds` |
-| 👀 Review (4) | `oidcc-prompt-login`, `oidcc-max-age-1`, `oidcc-ensure-registered-redirect-uri`, `oidcc-ensure-request-object-with-redirect-uri`: these finish with a screenshot for a human to check (a fresh sign-in page or an error page instead of a redirect). The screenshots are in the CI artifacts. |
-| ⚠️ Warning (2) | `oidcc-scope-profile` (only `name` and `updated_at` exist), `oidcc-claims-essential` (the `claims` parameter isn't supported, as discovery declares) |
-| ⏭️ Skipped (4) | `oidcc-scope-address`, `oidcc-scope-phone`, `oidcc-scope-all` (scopes not offered), `oidcc-unsigned-request-object-…` (request objects not supported) |
-
-One deliberate deviation makes the run possible: the Basic OP modules don't send PKCE, so the suite's static clients are
-registered with Kingdom ID's per-client PKCE waiver. Every other client requires PKCE, and the waiver is never a default.
-This is not an official OpenID certification, which requires submitting results to the OpenID Foundation.
-
-## Benchmarks
-
-A [k6](https://k6.io) load test of the **token endpoint**, in [`scaling/k6/token-refresh.js`](scaling/k6/token-refresh.js). Each request is a full refresh-token rotation:
-- client authentication;
-- a refresh token redeemed with a conditional update and its replacement inserted;
-- an RS256 access token and ID token signed;
-- last-used recorded;
-- two Redis rate-limit checks.
-
-Every virtual user rotates its own token chain, so each token is used exactly once, as a real client would use it.
-
-**Scaling run**: 50 VUs for 60 s per configuration, each Kingdom ID instance pinned to **1 CPU**, through the Caddy load balancer. Run on an Apple M5 Pro (18 CPUs available to Docker), on AC power, 25 October 2026:
-
-| Configuration | Requests | Throughput | p50 | p95 | p99 | Max | Errors |
-|---|---|---|---|---|---|---|---|
-| One instance | 35,131 | 585 req/s | 92 ms | 105 ms | 163 ms | 190 ms | 0% |
-| Two instances, round-robin | 72,484 | **1,207 req/s** | 37 ms | 93 ms | 112 ms | 236 ms | 0% |
-
-**A second instance doubles throughput (2.06×) and more than halves median latency.** That's the linear scaling a stateless API should show: no shared memory, no sticky sessions, and no coordination on the request path beyond Postgres and Redis. Across both runs, 107,615 refresh rotations completed with zero errors and no false reuse detections, even with each chain's consecutive rotations landing on different instances. Each 1-CPU instance sustains about 600 token responses a second, and each response includes two RSA signatures.
-
-Reproduce it with `VUS=50 DURATION=60s scaling/run-bench.sh` (`IDP_CPUS` sets the CPU budget per instance). Use a desktop or a plugged-in laptop, because a sleeping machine pauses Docker mid-run and shows up as multi-minute latencies.
-
-**In CI** the same benchmark runs on every push at 20 VUs ([latest](https://github.com/jwag789/kingdom-id/actions/runs/40209257819): 162 req/s either way, 0% errors). The runner has 2 vCPUs shared by all seven containers, so it can't show scaling. It's a regression guard instead: the build fails on any error or a p95 above 500 ms.
-
-## Threat model
+### Threat model
 
 | Threat | Mitigation |
 |---|---|
@@ -295,13 +260,148 @@ Reproduce it with `VUS=50 DURATION=60s scaling/run-bench.sh` (`IDP_CPUS` sets th
 | Clickjacking, XSS | `frame-ancestors 'none'`, a nonce-based CSP with `default-src 'none'`, auto-escaping server-rendered views, and no inline styles or scripts. |
 | Token confusion | UserInfo accepts only `typ: at+jwt` tokens with the right issuer and audience, so an ID token can't be used as an access token. |
 
+</details>
+
+## Conformance
+
+Every CI run builds Kingdom ID from the production `Dockerfile`, puts it behind TLS, and runs the
+[OpenID Foundation conformance suite](https://gitlab.com/openid/conformance-suite)'s **Basic OP certification plan**
+(`release-v5.3.3`, discovery + static clients) against it. The suite's scripted browser signs in through the real login
+and consent pages. Details and the full reasoning for every non-pass are in [`conformance/README.md`](conformance/README.md).
+
+**Latest result** ([CI run 40189242195](https://github.com/jwag789/kingdom-id/actions/runs/40189242195)): 35 test modules, 1,758 conditions checked, **0 failures**.
+
+
+<details>
+<summary><b>All 35 modules: 25 passed, 4 for human review, 2 warnings, 4 skipped</b></summary>
+<br>
+
+| Result | Modules |
+|---|---|
+| ✅ Passed (25) | `oidcc-server`, `oidcc-server-client-secret-post`, `oidcc-response-type-missing`, `oidcc-userinfo-get`, `oidcc-userinfo-post-header`, `oidcc-userinfo-post-body`, `oidcc-ensure-request-without-nonce-succeeds-for-code-flow`, `oidcc-scope-email`, `oidcc-alternate-happy-flow`, `oidcc-display-page`, `oidcc-display-popup`, `oidcc-prompt-none-not-logged-in`, `oidcc-prompt-none-logged-in`, `oidcc-max-age-10000`, `oidcc-ensure-request-with-unknown-parameter-succeeds`, `oidcc-id-token-hint`, `oidcc-login-hint`, `oidcc-ui-locales`, `oidcc-claims-locales`, `oidcc-ensure-request-with-acr-values-succeeds`, `oidcc-codereuse`, `oidcc-codereuse-30seconds`, `oidcc-ensure-post-request-succeeds`, `oidcc-refresh-token`, `oidcc-ensure-request-with-valid-pkce-succeeds` |
+| 👀 Review (4) | `oidcc-prompt-login`, `oidcc-max-age-1`, `oidcc-ensure-registered-redirect-uri`, `oidcc-ensure-request-object-with-redirect-uri`: these finish with a screenshot for a human to check (a fresh sign-in page or an error page instead of a redirect). The screenshots are in the CI artifacts. |
+| ⚠️ Warning (2) | `oidcc-scope-profile` (only `name` and `updated_at` exist), `oidcc-claims-essential` (the `claims` parameter isn't supported, as discovery declares) |
+| ⏭️ Skipped (4) | `oidcc-scope-address`, `oidcc-scope-phone`, `oidcc-scope-all` (scopes not offered), `oidcc-unsigned-request-object-…` (request objects not supported) |
+
+</details>
+
+One deliberate deviation makes the run possible: the Basic OP modules don't send PKCE, so the suite's static clients are
+registered with Kingdom ID's per-client PKCE waiver. Every other client requires PKCE, and the waiver is never a default.
+This is not an official OpenID certification, which requires submitting results to the OpenID Foundation.
+
+## Benchmarks
+
+A [k6](https://k6.io) load test of the **token endpoint**, in [`scaling/k6/token-refresh.js`](scaling/k6/token-refresh.js). Each request is a full refresh-token rotation:
+- client authentication;
+- a refresh token redeemed with a conditional update and its replacement inserted;
+- an RS256 access token and ID token signed;
+- last-used recorded;
+- two Redis rate-limit checks.
+
+Every virtual user rotates its own token chain, so each token is used exactly once, as a real client would use it.
+
+**Scaling run**: 50 VUs for 60 s per configuration, each Kingdom ID instance pinned to **1 CPU**, through the Caddy load balancer. Run on an Apple M5 Pro (18 CPUs available to Docker), on AC power, 25 October 2026:
+
+| Configuration | Requests | Throughput | p50 | p95 | p99 | Max | Errors |
+|---|---|---|---|---|---|---|---|
+| One instance | 35,131 | 585 req/s | 92 ms | 105 ms | 163 ms | 190 ms | 0% |
+| Two instances, round-robin | 72,484 | **1,207 req/s** | 37 ms | 93 ms | 112 ms | 236 ms | 0% |
+
+**A second instance doubles throughput (2.06×) and more than halves median latency.** That's the linear scaling a stateless API should show: no shared memory, no sticky sessions, and no coordination on the request path beyond Postgres and Redis. Across both runs, 107,615 refresh rotations completed with zero errors and no false reuse detections, even with each chain's consecutive rotations landing on different instances. Each 1-CPU instance sustains about 600 token responses a second, and each response includes two RSA signatures.
+
+Reproduce it with `VUS=50 DURATION=60s scaling/run-bench.sh` (`IDP_CPUS` sets the CPU budget per instance). Use a desktop or a plugged-in laptop, because a sleeping machine pauses Docker mid-run and shows up as multi-minute latencies.
+
+**In CI** the same benchmark runs on every push at 20 VUs ([latest](https://github.com/jwag789/kingdom-id/actions/runs/40209257819): 162 req/s either way, 0% errors). The runner has 2 vCPUs shared by all seven containers, so it can't show scaling. It's a regression guard instead: the build fails on any error or a p95 above 500 ms.
+
+## Tests
+
+```bash
+pnpm test        # unit + integration (Testcontainers starts real Postgres and Redis)
+pnpm test:e2e    # Playwright through the demo client: passkeys via a virtual authenticator, axe-core WCAG 2.1 AA checks
+```
+
+- **Unit tests** cover PKCE (including the RFC 7636 Appendix B vector), authorization request validation, redirect URI rules, key encryption and config.
+- **Integration tests** run the real app against real Postgres and Redis: the full flow, key rotation (including five instances rotating at once), refresh token rotation and reuse detection (including concurrent exchanges), code replay, revocation, introspection, logout, back-channel logout (signed logout tokens, retries, dead-lettering), token endpoint attacks, CSRF, cookies, rate limits and headers.
+- **Passkey tests** use a software authenticator that produces real WebAuthn attestations and assertions, so the server's verification runs unmodified: single-use and browser-bound challenges, wrong-origin (phishing) assertions, mismatched user handles, counter rollback, and required user verification.
+- **Browser e2e tests** sign up and back in with a passkey through Chromium's virtual authenticator, check every page against WCAG 2.1 AA in dark and light mode at desktop and phone widths, check there's no horizontal scroll on phones, confirm `prefers-reduced-motion` stops the animation, and confirm the password path works with JavaScript disabled.
+- **Dashboard tests** check that disconnecting an app really kills its refresh families and access tokens while other apps keep working, every perk rule (including backdated consents), that third-party apps can't obtain the `perks` scope, that each user sees only their own Watchtower, and that admin is closed to non-admins and to admins without a passkey session.
+- **Pipeline tests** check that publishing doesn't write until the consumer runs, that redelivery persists once, that three consumers split thirty events with none handled twice, that a crashed consumer's unacknowledged entries are reclaimed, that a poison event is dead-lettered while later events still flow, and every detection rule including de-duplication and the trusted-proxy rule for country headers.
+- **CLI tests** run each command in-process against a fresh database: secrets shown once, usage errors (exit 2) and failures (exit 1), key rotation states, passwords only from stdin or generated, and `token verify` against a live issuer, including tampered signatures and wrong audiences.
+- **A migration race test** runs four migrators against one empty database at once (it fails without the advisory lock).
+- **An interop test** drives everything with [`openid-client`](https://github.com/panva/openid-client), an independent certified relying-party library: discovery, authorization, token exchange, userinfo, refresh, introspection, revocation and RP-initiated logout. This shows the provider is interoperable, not just consistent with itself.
+
+CI runs lint, typecheck, build, the test suite and the browser e2e on every push.
+
+<details>
+<summary><b>Standards implemented: 17 RFCs, 6 OpenID specifications, W3C WebAuthn</b></summary>
+<br>
+
+## Standards implemented
+
+| Feature | Specification |
+|---|---|
+| Authorization code grant | RFC 6749 §4.1 |
+| Refresh tokens with rotation and reuse detection | RFC 6749 §6; RFC 9700 §4.14.2 |
+| Token revocation | RFC 7009 |
+| Token introspection | RFC 7662 |
+| RP-initiated logout | OpenID Connect RP-Initiated Logout 1.0 |
+| Back-channel logout on sign-out, disconnect and token theft | OpenID Connect Back-Channel Logout 1.0 |
+| `offline_access` | OpenID Connect Core 1.0 §11 |
+| PKCE, S256 only, required for every client | RFC 7636; RFC 9700 §2.1.1 |
+| ID tokens, UserInfo, `prompt`, `max_age`, `id_token_hint`, `nonce`, `at_hash` | OpenID Connect Core 1.0 |
+| Pairwise subject identifiers | OpenID Connect Core 1.0 §8.1 |
+| Discovery | OpenID Connect Discovery 1.0; RFC 8414 |
+| JWKS | RFC 7517 (JWK), RFC 7638 (thumbprint `kid`s) |
+| JWT access tokens (`typ: at+jwt`) | RFC 9068 |
+| Bearer token usage at UserInfo | RFC 6750 |
+| Email relay: header rewriting, encoded display names, sender authentication | RFC 5322, RFC 2047, SPF (RFC 7208), DKIM (RFC 6376), DMARC (RFC 7489) |
+| Inbound delivery from SES | Amazon SNS message signatures (versions 1 and 2) |
+| Authorization response `iss` parameter | RFC 9207 |
+| `prompt=create` | OpenID Connect Initiating User Registration 1.0 |
+| Passkeys: discoverable credentials, user verification, conditional mediation (autofill) | W3C Web Authentication Level 3 |
+| `amr` values (`pwd`, `hwk`, `swk`, `user`, `mfa`) | RFC 8176 |
+| `acr` `phr` (phishing-resistant) and step-up via `acr_values` | OpenID EAP ACR Values 1.0; OpenID Connect Core 1.0 §3.1.2.1 |
+| Security best current practice | RFC 9700 (OAuth 2.0 Security BCP) |
+
+</details>
+
+<details>
+<summary><b>The <code>kingdom</code> CLI</b></summary>
+<br>
+
+## The `kingdom` CLI
+
+Operators manage a deployment from the command line. The same binary ships in the production image, so it runs where the server runs (`node dist/cli/bin.js …`); in this repo, `pnpm -s kingdom …`.
+
+```text
+kingdom clients list [--json]
+kingdom clients create --name <name> --redirect-uri <uri>... [--public] [--first-party]
+                       [--post-logout-uri <uri>...] [--backchannel-logout-uri <uri>]
+                       [--auth-method basic|post] [--logo-uri <uri>]
+                       [--id-token-alg RS256|ES256] [--subject pairwise|public] [--json]
+kingdom keys list [--json]
+kingdom keys rotate [--alg RS256|ES256]
+kingdom users create --email <e> --name <n> (--password-stdin | --generate-password) [--verified] [--admin]
+kingdom users admin <email> [--revoke]
+kingdom token decode <jwt>
+kingdom token verify <jwt> [--issuer <url>] [--audience <aud>]
+```
+
+Client secrets are printed once (only a hash is stored). Passwords are read from stdin or generated, never taken as arguments, where shell history and `ps` would see them. `token verify` fetches keys the way a relying party would, from the issuer's discovery document, and exits non-zero on any failure, so it works in scripts. Usage errors exit 2; operational errors exit 1.
+
+</details>
+
+<details>
+<summary><b>Design decisions: why it's built the way it is</b></summary>
+<br>
+
 ## Design decisions
 
 **ID tokens carry no personal data by default.** In the code flow, profile and email claims are released through UserInfo
 against the access token (OIDC Core §5.4). ID tokens get passed around as proof of authentication, so they hold only
 `sub`, `auth_time`, `amr`, `sid` and the like. The conformance suite flags the alternative as a data-exposure risk.
 
-**Hand-written protocol layer.** OAuth and OIDC logic (request validation, the interaction state machine, code handling, token issuance) is written directly from the RFCs. Only vetted primitives are libraries: `jose` for JWS/JWK, `@node-rs/argon2`, and later SimpleWebAuthn.
+**Hand-written protocol layer.** OAuth and OIDC logic (request validation, the interaction state machine, code handling, token issuance) is written directly from the RFCs. Only vetted primitives are libraries: `jose` for JWS/JWK, `@node-rs/argon2`, and SimpleWebAuthn for WebAuthn.
 
 **Fastify, not Next.js or Express.** An identity provider is mostly protocol endpoints where the details matter: exact status codes, `Cache-Control: no-store`, form-encoded bodies, `WWW-Authenticate` challenges. Fastify keeps those explicit, has well-defined hooks for CSRF, rate limits and headers, and is fast.
 
@@ -331,7 +431,7 @@ against the access token (OIDC Core §5.4). ID tokens get passed around as proof
 
 **Drizzle on postgres.js.** Typed queries that stay close to SQL, and migrations committed as reviewable SQL. Invariants like "one active key per algorithm" are partial unique indexes, so the database enforces them rather than relying on the rotation code being careful.
 
-**JWT access tokens (RFC 9068).** Kingdom apps can validate access tokens locally against the JWKS. The tradeoff is revocation, so tokens are short-lived (10 minutes). UserInfo also checks that consent still exists, so disconnecting an app stops its token there immediately. Phase 2 adds introspection for callers that need a live answer.
+**JWT access tokens (RFC 9068).** Kingdom apps can validate access tokens locally against the JWKS. The tradeoff is revocation, so tokens are short-lived (10 minutes). UserInfo also checks that consent still exists, so disconnecting an app stops its token there immediately. Callers that need a live answer use introspection.
 
 **RS256 by default, ES256 opt-in.** OIDC requires RS256 support and it's what most relying parties expect. Clients can register ES256 for smaller, faster ID tokens. Access tokens are always RS256, the algorithm every RFC 9068 resource server must support.
 
@@ -341,7 +441,7 @@ against the access token (OIDC Core §5.4). ID tokens get passed around as proof
 
 **Rotation without coordination.** Every instance runs the rotation check, and a Postgres advisory lock lets exactly one act. Instances cache keys for 30 seconds, which is safe because a key is published long before it signs and stays published after.
 
-**Grants as the unit of revocation.** Each code exchange creates a grant row. Its refresh tokens are the "family", and every access token carries its ID. Revoking one row (reuse, replay, client revocation, logout, or a user disconnecting an app in phase 5) invalidates everything derived from it, with no denylist to keep in sync.
+**Grants as the unit of revocation.** Each code exchange creates a grant row. Its refresh tokens are the "family", and every access token carries its ID. Revoking one row (reuse, replay, client revocation, logout, or a user disconnecting an app) invalidates everything derived from it, with no denylist to keep in sync.
 
 **Strict reuse detection, no grace window.** Some providers tolerate a reused refresh token for a few seconds to absorb client retries. Kingdom ID doesn't: two concurrent exchanges of one token revoke the family, and the client must sign the user in again. That is safer, and a well-behaved client never sends the same refresh token twice.
 
@@ -352,6 +452,8 @@ against the access token (OIDC Core §5.4). ID tokens get passed around as proof
 **First-party apps share a subject.** Kingdom's own apps are registered as first-party and share one pairwise sector, so Cappuccino and InkSpirit see the same `sub` for the same person. Every other app gets its own sector, so third parties still can't correlate users.
 
 **Authorization codes and interactions in Redis.** They're short-lived, written once and read once. `GETDEL` makes single use atomic across instances without a database round trip.
+
+</details>
 
 ## Repository layout
 
@@ -373,3 +475,10 @@ docs               Integration, deployment and relay guides; screenshots
 ---
 
 Kingdom ID, by [Kingdom Web Builders](https://kingdomwebbuilders.com).
+
+---
+
+<p align="center">
+  <img src="packages/brand/assets/kingdom-mark.svg" alt="" width="48"><br>
+  <sub>Kingdom ID, by <a href="https://kingdomwebbuilders.com">Kingdom Web Builders</a>.</sub>
+</p>

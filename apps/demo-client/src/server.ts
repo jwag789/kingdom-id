@@ -41,7 +41,7 @@ app.get("/", async (req, reply) => {
     return page(`
       <h1>Kingdom Demo</h1>
       <p>A sample app that signs in with Kingdom ID.</p>
-      <a class="button" href="/login">Sign in with Kingdom</a>`);
+      <a class="kingdom-button" href="/login">Sign in with Kingdom</a>`);
   }
   return page(`
     <h1 data-testid="greeting">Signed in as ${esc(String(session.userinfo.name ?? session.userinfo.sub))}</h1>
@@ -114,7 +114,8 @@ function esc(s: string) {
 
 function page(body: string) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Kingdom Demo</title><style>
+<title>Kingdom Demo</title>
+<link rel="stylesheet" href="${esc(issuer)}/brand/button.css"><style>
 body{font-family:system-ui,sans-serif;max-width:46rem;margin:3rem auto;padding:0 1rem;background:#f6f8fc;color:#0a0f24}
 .button.secondary{background:#fff;color:#0a0f24;border:1px solid #dde2ec}
 .button{display:inline-block;background:#0054ee;color:#fff;padding:.75rem 1.25rem;border-radius:999px;text-decoration:none;font-weight:600}
