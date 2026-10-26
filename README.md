@@ -131,7 +131,7 @@ Operators manage a deployment from the command line. The same binary ships in th
 kingdom clients list [--json]
 kingdom clients create --name <name> --redirect-uri <uri>... [--public] [--first-party]
                        [--post-logout-uri <uri>...] [--backchannel-logout-uri <uri>]
-                       [--auth-method basic|post]
+                       [--auth-method basic|post] [--logo-uri <uri>]
                        [--id-token-alg RS256|ES256] [--subject pairwise|public] [--json]
 kingdom keys list [--json]
 kingdom keys rotate [--alg RS256|ES256]

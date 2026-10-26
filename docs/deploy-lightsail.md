@@ -60,10 +60,17 @@ sudo docker compose exec app-1 node dist/cli/bin.js clients create \
   --name Cappuccino --first-party \
   --redirect-uri https://usecappuccino.com/api/auth/kingdom/callback \
   --redirect-uri https://www.usecappuccino.com/api/auth/kingdom/callback \
-  --post-logout-uri https://usecappuccino.com/login
+  --post-logout-uri https://usecappuccino.com/login \
+  --backchannel-logout-uri https://usecappuccino.com/api/auth/kingdom/backchannel-logout \
+  --logo-uri https://usecappuccino.com/apple-icon.png
 ```
 
 Redirect URIs match exactly, so list every host people reach the app on (here with and without `www`).
+
+- `--backchannel-logout-uri` lets Kingdom sign members out of the app when they sign out of Kingdom or disconnect it in Your Kingdom.
+- `--logo-uri` is the tile shown next to Kingdom's on the sign-in page and in Your Kingdom. Use a square image on a solid background, over `https`.
+
+**Cappuccino's welcome perk.** Cappuccino credits 1,000 beans to members who hold the perk `cappuccino.welcome-beans`. Create it once, signed in as an admin: **Admin → Perks**, app Cappuccino, id `cappuccino.welcome-beans`, name "1,000 bonus beans", rule **Connected**. Pausing it there stops new credits.
 
 It prints a `client_id` and a `client_secret` once. Put them straight into the app's environment (for an Amplify app: **Hosting → Environment variables**), not into chat or a file.
 
