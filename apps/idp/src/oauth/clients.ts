@@ -7,8 +7,16 @@ import { FIRST_PARTY_ONLY_SCOPES, SUPPORTED_SCOPES } from "./scopes.js";
 
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
-/** Registration-time validation (RFC 6749 §3.1.2, RFC 9700 §2.1). Returns the shared host for pairwise subjects. */
-export function validateRedirectUris(uris: string[]): string {
+/**
+ * Registration-time validation (RFC 6749 §3.1.2, RFC 9700 §2.1). Returns the
+ * (first) redirect host, which is the pairwise sector for a third-party client.
+ *
+ * Only a client whose subjects are derived from that host needs every URI on
+ * it (OIDC Core §8.1): otherwise one app could split into two sectors. A
+ * first-party client uses the shared Kingdom sector, and a public-subject
+ * client none, so either may answer on several hosts (`app.com` and `www.app.com`).
+ */
+export function validateRedirectUris(uris: string[], { requireSingleHost = true }: { requireSingleHost?: boolean } = {}): string {
   if (uris.length === 0) throw new Error("at least one redirect URI is required");
   const hosts = new Set<string>();
   for (const raw of uris) {
@@ -19,7 +27,7 @@ export function validateRedirectUris(uris: string[]): string {
     }
     hosts.add(url.hostname);
   }
-  if (hosts.size > 1) {
+  if (requireSingleHost && hosts.size > 1) {
     throw new Error("all redirect URIs must share one host, which is the client's pairwise sector identifier");
   }
   return [...hosts][0]!;
@@ -76,7 +84,9 @@ export class ClientService {
 
   /** Registers a client. The secret is returned once and only its hash is stored. */
   async create(input: CreateClientInput): Promise<{ client: Client; secret?: string }> {
-    const host = validateRedirectUris(input.redirectUris);
+    const host = validateRedirectUris(input.redirectUris, {
+      requireSingleHost: !input.firstParty && (input.subjectType ?? "pairwise") === "pairwise",
+    });
     validatePostLogoutUris(input.postLogoutRedirectUris ?? []);
     // Same rules: https, or http on loopback; no fragment.
     if (input.backchannelLogoutUri) validatePostLogoutUris([input.backchannelLogoutUri]);

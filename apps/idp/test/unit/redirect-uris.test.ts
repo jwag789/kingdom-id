@@ -20,6 +20,15 @@ describe("redirect URI registration", () => {
     expect(() => validateRedirectUris(["https://a.example.com/cb", "https://b.example.com/cb"])).toThrow(/one host/);
   });
 
+  it("allows several hosts when the sector doesn't come from them", () => {
+    expect(
+      validateRedirectUris(["https://app.example.com/cb", "https://www.app.example.com/cb"], { requireSingleHost: false }),
+    ).toBe("app.example.com");
+    expect(() =>
+      validateRedirectUris(["https://app.example.com/cb", "http://www.app.example.com/cb"], { requireSingleHost: false }),
+    ).toThrow(/https/);
+  });
+
   it("requires at least one", () => {
     expect(() => validateRedirectUris([])).toThrow();
   });

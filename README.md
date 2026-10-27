@@ -61,7 +61,7 @@
 | **Conformance** | OpenID Foundation Basic OP plan in CI: [25 passed, 0 failed](#conformance). |
 | **Security** | Mandatory PKCE, refresh rotation with reuse detection, passkeys, a Redis Streams detection pipeline, and a [threat model](#threat-model). |
 | **Scale** | Stateless: [2.06× throughput](#benchmarks) from a second instance, proven [across instances with no sticky sessions](#scaling-out). |
-| **Tests** | 196 unit and integration tests on real Postgres and Redis, 23 browser end-to-end tests with WCAG 2.1 AA checks, and interop with the certified `openid-client`. |
+| **Tests** | 199 unit and integration tests on real Postgres and Redis, 23 browser end-to-end tests with WCAG 2.1 AA checks, and interop with the certified `openid-client`. |
 
 <p align="center">
   <img src="docs/images/sign-in-dark.png" alt="Kingdom ID sign-in: the Kingdom brand story on the left; on the right a card co-branded with the requesting app, with 'Continue with a passkey' as the primary action" width="820">
@@ -435,7 +435,7 @@ against the access token (OIDC Core §5.4). ID tokens get passed around as proof
 
 **RS256 by default, ES256 opt-in.** OIDC requires RS256 support and it's what most relying parties expect. Clients can register ES256 for smaller, faster ID tokens. Access tokens are always RS256, the algorithm every RFC 9068 resource server must support.
 
-**Pairwise subjects by default.** Paired with relay emails, this means an app learns nothing that identifies the user to any other app. The sector is the redirect host, so all of a client's redirect URIs must share one host.
+**Pairwise subjects by default.** Paired with relay emails, this means an app learns nothing that identifies the user to any other app. The sector is the redirect host, so all of a third-party client's redirect URIs must share one host. First-party apps use the shared Kingdom sector, so they may also answer on `www.` and other hosts.
 
 **Client secrets hashed with SHA-256, not argon2.** Kingdom ID generates every client secret with 256 bits of entropy, so a slow hash adds no security and would let anyone burn CPU on the token endpoint. Human-chosen passwords use argon2id.
 
