@@ -822,6 +822,12 @@ input[aria-invalid="true"] {
   margin-top: 16px;
 }
 
+/* Keys' "Add a passkey": `~`, because the hidden passkey error sits between it and the list. */
+.panel > .passkeys ~ .btn,
+.panel > .hint ~ .btn {
+  margin-top: 20px;
+}
+
 .actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
