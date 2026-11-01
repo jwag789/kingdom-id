@@ -36,7 +36,7 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
-    "@testcontainers/postgresql": "^11.7.1",
+    "@testcontainers/postgresql": "^12.2.1",
     "@testcontainers/redis": "^11.7.1",
     "openid-client": "^6.8.1",
     "postgres": "^3.4.7",
