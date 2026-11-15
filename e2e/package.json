@@ -9,7 +9,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",
-    "@playwright/test": "^1.56.1",
+    "@playwright/test": "^1.65.0",
     "postgres": "^3.4.7",
     "tsx": "^4.20.6",
     "ioredis": "^5.8.1"
